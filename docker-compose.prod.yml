@@ -1,0 +1,98 @@
+version: "3.9"
+
+services:
+  aggregator:
+    build: .
+    container_name: bandwidth-aggregator-prod
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    networks:
+      - bandwidth-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ping-monitor:
+    build: .
+    container_name: ping-monitor-prod
+    restart: unless-stopped
+    command: ["python", "-m", "src.ping_monitor"]
+    env_file:
+      - .env.production
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    networks:
+      - bandwidth-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build: .
+    container_name: reseller-api-prod
+    restart: unless-stopped
+    command: ["python", "-m", "api.main"]
+    env_file:
+      - .env.production
+    ports:
+      - "8000:8000"
+    networks:
+      - bandwidth-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: frontend-prod
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    networks:
+      - bandwidth-network
+    depends_on:
+      - api
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    networks:
+      - bandwidth-network
+    depends_on:
+      - frontend
+      - api
+
+networks:
+  bandwidth-network:
+    driver: bridge 

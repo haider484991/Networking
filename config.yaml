@@ -1,0 +1,25 @@
+# Runtime configuration for Bandwidth Alert Notification System
+
+vlans:
+  - 10
+  - 20
+  - 30
+  - 40
+  - 50
+
+# Threshold in Mbps for the 5-minute moving average
+threshold_mbps: 950
+
+collection:
+  # For early testing, set to "mock" to use random values instead of SNMP
+  method: snmp  # options: snmp | mock
+  snmp:
+    host: 192.0.2.1          # Cisco NCS 5501 IP
+    community: public
+    version: 2c
+
+alert:
+  channel: whatsapp
+  twilio:
+    from_number: "whatsapp:+14155238886"
+    to_number: "whatsapp:+8801000000000" 

@@ -1,0 +1,14 @@
+apscheduler==3.10.1
+requests==2.31.0
+PyYAML==6.0.1
+twilio==8.10.0
+pysnmp==4.4.12
+python-dotenv==1.0.1
+supabase==2.15.1
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+reportlab==4.0.4
+matplotlib==3.7.2
+pandas==2.0.3
+numpy==1.24.3 
