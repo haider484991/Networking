@@ -17,9 +17,40 @@ import random
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.config import load_config
+from src.aggregator import Aggregator
+from src.ping_monitor import PingMonitor
+from apscheduler.schedulers.background import BackgroundScheduler
+
 from src.pdf_generator import PDFReportGenerator
 
 app = FastAPI(title="Reseller Monitor API", version="1.0.0")
+
+# --- Scheduler setup ---
+def start_scheduler():
+    """Start background tasks for aggregation and ping monitoring."""
+    cfg = load_config()
+    
+    # Initialize services
+    aggregator = Aggregator(cfg)
+    ping_monitor = PingMonitor(cfg)
+    
+    # Create scheduler
+    scheduler = BackgroundScheduler()
+    
+    # Add jobs
+    scheduler.add_job(aggregator.run_cycle, "interval", minutes=5, id="aggregator_cycle")
+    scheduler.add_job(ping_monitor.run_forever, "interval", seconds=10, id="ping_monitor_cycle")
+    
+    # Start scheduler
+    scheduler.start()
+    print("Scheduler started with aggregation and ping monitoring jobs.")
+
+@app.on_event("startup")
+async def startup_event():
+    """Run scheduler on application startup."""
+    print("Application startup: Starting background scheduler...")
+    start_scheduler()
 
 # Enable CORS for frontend
 allowed_origins = [
