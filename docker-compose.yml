@@ -4,6 +4,8 @@ services:
   aggregator:
     build: .
     container_name: bandwidth-aggregator
+    # Run the aggregator data-collector (not the FastAPI server)
+    command: ["python", "-m", "src.aggregator"]
     restart: unless-stopped
     env_file:
       - .env
