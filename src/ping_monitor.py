@@ -23,13 +23,25 @@ class PingMonitor:
         self.failure_counts: Dict[str, int] = {}
         self.last_states: Dict[str, str] = {}
         
-        # Mock reseller IPs - in real app would fetch from Supabase
-        self.reseller_ips = {
-            "r1": "8.8.8.8",      # SpeedServe
-            "r2": "1.1.1.1",      # OptiLine  
-            "r3": "208.67.222.222", # LowCostISP
-            "r4": "192.0.2.1",    # DownTownNet (likely to fail)
-        }
+        # Load reseller IP mapping from JSON for easy local customization
+        import json
+        from pathlib import Path
+
+        ips_file = Path(self.cfg.get("reseller_ips_file", "reseller_ips.json"))
+        if ips_file.exists():
+            try:
+                self.reseller_ips = json.loads(ips_file.read_text())
+            except Exception as exc:
+                logger.error("Failed to load %s: %s – falling back to defaults", ips_file, exc)
+                self.reseller_ips = {}
+        else:
+            # Fallback defaults (mock)
+            self.reseller_ips = {
+                "r1": "8.8.8.8",
+                "r2": "1.1.1.1",
+                "r3": "208.67.222.222",
+                "r4": "192.0.2.1",
+            }
         
     def ping_ip(self, ip: str) -> bool:
         """Ping an IP address once, return True if successful."""
