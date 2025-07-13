@@ -53,16 +53,22 @@ async def startup_event():
     start_scheduler()
 
 # Enable CORS for frontend
+# CORS origins – include localhost, Vercel preview URLs, and allow all as fallback
 allowed_origins = [
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
     "https://*.vercel.app",
     "https://vercel.app",
 ]
 
-# Add environment-specific origins
+# Add dashboard URL if set via env
 frontend_url = os.getenv("FRONTEND_URL")
 if frontend_url:
     allowed_origins.append(frontend_url)
+
+# In self-hosted deployments we may not know the exact hostname ahead of time;
+# fallback to allow all origins so the dashboard can communicate.
+allowed_origins.append("*")
 
 app.add_middleware(
     CORSMiddleware,
