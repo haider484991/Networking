@@ -21,11 +21,26 @@ class Aggregator:
         self.collector = TrafficCollector(config)
         self.threshold = float(config.get("threshold_mbps", 950))
 
+        # --------------------------------------------------------------
+        # Optional WhatsApp alerts (Twilio)
+        # --------------------------------------------------------------
         alert_cfg = config.get("alert", {}).get("twilio", {})
-        self.alert_sender = WhatsAppAlert(
-            from_number=alert_cfg.get("from_number"),
-            to_number=alert_cfg.get("to_number"),
-        )
+        from_number = alert_cfg.get("from_number")
+        to_number = alert_cfg.get("to_number")
+
+        if from_number and to_number:
+            try:
+                self.alert_sender: WhatsAppAlert | None = WhatsAppAlert(
+                    from_number=from_number,
+                    to_number=to_number,
+                )
+                logger.info("WhatsApp alerts enabled; messages will be sent to %s", to_number)
+            except Exception as exc:
+                logger.warning("Disabling WhatsApp alerts: %s", exc)
+                self.alert_sender = None
+        else:
+            logger.info("WhatsApp alerts disabled (from/to number not configured)")
+            self.alert_sender = None
 
         self._last_alert_ts: float | None = None
         # Cool-down to avoid spamming (seconds)
@@ -124,7 +139,7 @@ class Aggregator:
             f"Alert: VLAN Traffic exceeded {self.threshold} Mbps in last 5 minutes! "
             f"Current usage: {total_mbps:.2f} Mbps."
         )
-        if self.alert_sender.send(message):
+        if self.alert_sender and self.alert_sender.send(message):
             self._last_alert_ts = now
             # Write to Supabase alerts table (reseller_id NULL for backbone alert)
             try:
