@@ -47,60 +47,6 @@ export default function ResellerDetail() {
     }
   }, [id]);
 
-  const generateMockUsageData = (resellerId: string): UsagePoint[] => {
-    const data: UsagePoint[] = [];
-    const now = new Date();
-    
-    for (let i = 23; i >= 0; i--) {
-      const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
-      data.push({
-        ts: timestamp.toISOString(),
-        reseller_id: resellerId,
-        rx_mbps: Math.floor(Math.random() * 80) + 20, // 20-100 Mbps
-        tx_mbps: Math.floor(Math.random() * 30) + 10, // 10-40 Mbps
-      });
-    }
-    
-    return data;
-  };
-
-  const getMockReseller = (resellerId: string): Reseller => {
-    const mockResellers = {
-      'r1': { id: 'r1', name: 'SpeedServe', plan_mbps: 500, threshold: 80 },
-      'r2': { id: 'r2', name: 'OptiLine', plan_mbps: 100, threshold: 80 },
-      'r3': { id: 'r3', name: 'LowCostISP', plan_mbps: 50, threshold: 80 },
-      'r4': { id: 'r4', name: 'DownTownNet', plan_mbps: 200, threshold: 80 }
-    };
-    
-    return mockResellers[resellerId as keyof typeof mockResellers] || mockResellers.r1;
-  };
-
-  const getMockAlerts = (resellerId: string): AlertType[] => {
-    return [
-      {
-        id: 'a1',
-        reseller_id: resellerId,
-        level: 'YELLOW',
-        message: 'Bandwidth usage exceeded 80% threshold',
-        sent_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'a2',
-        reseller_id: resellerId,
-        level: 'RED',
-        message: 'Bandwidth usage exceeded 100% threshold',
-        sent_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'a3',
-        reseller_id: resellerId,
-        level: 'LINK_DOWN',
-        message: 'Connection lost to reseller equipment',
-        sent_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
-      }
-    ];
-  };
-
   const loadData = async (resellerId: string) => {
     try {
       console.log(`Loading data for reseller: ${resellerId}`);
@@ -125,16 +71,14 @@ export default function ResellerDetail() {
       setApiAvailable(true);
     } catch (error) {
       console.error('Failed to load reseller data:', error);
-      console.log('Using mock data for reseller detail page');
+      console.log('API not available for reseller detail page');
       setApiAvailable(false);
       
-      // Use mock data when API fails
-      setReseller(getMockReseller(resellerId));
-      setUsageData(generateMockUsageData(resellerId));
-      setAlerts(getMockAlerts(resellerId));
-      setLinkStates([
-        { reseller_id: resellerId, state: 'UP', since: new Date().toISOString() }
-      ]);
+      // Set empty data when API fails
+      setReseller(null);
+      setUsageData([]);
+      setAlerts([]);
+      setLinkStates([]);
     } finally {
       setDataLoading(false);
     }
@@ -191,9 +135,9 @@ export default function ResellerDetail() {
         <Alert status="warning" mb={6} borderRadius="md">
           <AlertIcon />
           <Box flex="1">
-            <AlertTitle fontSize="sm">Demo Mode</AlertTitle>
+            <AlertTitle fontSize="sm">API Unavailable</AlertTitle>
             <AlertDescription fontSize="sm">
-              API backend not available. Showing mock data for demonstration.
+              The API backend is not available. Please ensure the backend services are running.
             </AlertDescription>
           </Box>
         </Alert>
@@ -203,7 +147,7 @@ export default function ResellerDetail() {
         <Heading>{reseller.name}</Heading>
         <HStack>
           <Badge colorScheme={apiAvailable ? 'green' : 'orange'} fontSize="sm">
-            {apiAvailable ? 'Live Data' : 'Mock Data'}
+            {apiAvailable ? 'Live Data' : 'API Unavailable'}
           </Badge>
           <Badge colorScheme={statusColor} fontSize="md" px={3} py={1}>
             {currentStatus}
@@ -276,7 +220,7 @@ export default function ResellerDetail() {
         <Text fontSize="sm">
           {apiAvailable 
             ? 'Real-time data from API – updates every 5 minutes.' 
-            : 'Demo mode – using mock data. Start backend services for real data.'}
+            : 'API backend is not available. Please ensure services are running.'}
         </Text>
       </Flex>
     </Box>

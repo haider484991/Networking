@@ -8,7 +8,7 @@ from datetime import datetime
 
 from .collector import TrafficCollector
 from .alert import WhatsAppAlert
-from .supabase_client import insert_row
+from .supabase_client import insert_row, get_client
 
 logger = logging.getLogger(__name__)
 
@@ -65,26 +65,53 @@ class Aggregator:
     # Internal
     # ------------------------------------------------------------------
     def _write_usage_data(self, per_vlan: Dict[int, float]) -> None:
-        """Write mock reseller usage data to Supabase."""
+        """Write reseller usage data to Supabase database."""
         try:
-            # Mock mapping of VLANs to resellers
-            vlan_to_reseller = {
-                10: "r1",  # SpeedServe
-                20: "r2",  # OptiLine
-                30: "r3",  # LowCostISP
-                40: "r4",  # DownTownNet
-                50: "r1",  # Additional capacity for SpeedServe
-            }
+            # Get actual reseller-router mappings from database
+            client = get_client()
+            
+            # Get all enabled resellers and their router mappings
+            resellers_result = client.table("resellers").select("*").execute()
+            mappings_result = client.table("reseller_router_mapping").select("*").execute()
+            
+            if not resellers_result.data:
+                logger.warning("No resellers found in database")
+                return
+                
+            # Create mapping of VLANs to resellers based on database data
+            vlan_to_reseller = {}
+            if mappings_result.data:
+                # Use actual router mappings if available
+                for mapping in mappings_result.data:
+                    # For demo purposes, assign VLANs sequentially to resellers
+                    reseller_id = mapping['reseller_id']
+                    if reseller_id not in vlan_to_reseller.values():
+                        # Find next available VLAN
+                        for vlan in [10, 20, 30, 40, 50]:
+                            if vlan not in vlan_to_reseller:
+                                vlan_to_reseller[vlan] = reseller_id
+                                break
+            else:
+                # Fallback: distribute VLANs evenly among resellers
+                reseller_ids = [r['id'] for r in resellers_result.data]
+                vlans = [10, 20, 30, 40, 50]
+                for i, vlan in enumerate(vlans):
+                    if i < len(reseller_ids):
+                        vlan_to_reseller[vlan] = reseller_ids[i]
+                    else:
+                        # Assign remaining VLANs to first reseller for additional capacity
+                        vlan_to_reseller[vlan] = reseller_ids[0]
             
             timestamp = datetime.now().isoformat()
             
             for vlan, mbps in per_vlan.items():
                 reseller_id = vlan_to_reseller.get(vlan)
                 if reseller_id:
-                    # Split into rx/tx (mock 60/40 split)
+                    # Split into rx/tx (realistic 60/40 split)
                     rx_mbps = mbps * 0.6
                     tx_mbps = mbps * 0.4
                     
+                    # Store usage data in database
                     insert_row("usage_5m", {
                         "ts": timestamp,
                         "reseller_id": reseller_id,
@@ -92,42 +119,46 @@ class Aggregator:
                         "tx_mbps": tx_mbps
                     })
                     
-                    # Check reseller thresholds
-                    self._check_reseller_threshold(reseller_id, mbps)
+                    # Check reseller thresholds against actual plans from database
+                    reseller_data = next((r for r in resellers_result.data if r['id'] == reseller_id), None)
+                    if reseller_data:
+                        self._check_reseller_threshold(reseller_id, mbps, reseller_data['plan_mbps'], reseller_data.get('threshold', 0.8))
                     
         except Exception as exc:
             logger.warning("Failed to write usage data to Supabase: %s", exc)
 
-    def _check_reseller_threshold(self, reseller_id: str, current_mbps: float) -> None:
-        """Check if reseller exceeded their plan threshold."""
-        # Mock reseller plans
-        reseller_plans = {
-            "r1": 500,  # SpeedServe
-            "r2": 100,  # OptiLine
-            "r3": 50,   # LowCostISP
-            "r4": 200,  # DownTownNet
-        }
-        
-        plan_mbps = reseller_plans.get(reseller_id, 100)
-        utilization = current_mbps / plan_mbps
-        
-        alert_level = None
-        if utilization >= 1.0:
-            alert_level = "RED"
-        elif utilization >= 0.8:
-            alert_level = "YELLOW"
+    def _check_reseller_threshold(self, reseller_id: str, current_mbps: float, plan_mbps: int, threshold: float) -> None:
+        """Check reseller bandwidth threshold against actual plan data."""
+        try:
+            utilization = current_mbps / plan_mbps
             
-        if alert_level:
-            try:
-                insert_row("alerts", {
-                    "reseller_id": reseller_id,
-                    "level": alert_level,
-                    "message": f"Reseller {reseller_id} bandwidth at {utilization*100:.1f}% ({current_mbps:.1f}/{plan_mbps} Mbps)",
-                    "sent_at": datetime.now().isoformat()
-                })
-                logger.info("Reseller %s threshold alert: %s", reseller_id, alert_level)
-            except Exception as exc:
-                logger.warning("Failed to insert reseller alert: %s", exc)
+            if utilization >= 1.0:  # 100% or higher
+                level = "RED"
+                message = f"Reseller {reseller_id} bandwidth exceeded 100% ({current_mbps:.1f}/{plan_mbps} Mbps)"
+            elif utilization >= threshold:  # Above threshold (default 80%)
+                level = "YELLOW"
+                message = f"Reseller {reseller_id} bandwidth exceeded {threshold*100:.0f}% threshold ({current_mbps:.1f}/{plan_mbps} Mbps)"
+            else:
+                return  # No alert needed
+            
+            # Store alert in database
+            insert_row("alerts", {
+                "reseller_id": reseller_id,
+                "level": level,
+                "message": message,
+                "sent_at": datetime.now().isoformat()
+            })
+            
+            # Send alert notification if configured
+            if self.alert_sender:
+                alert_sent = self.alert_sender.send(message)
+                if alert_sent:
+                    logger.info("Alert sent for reseller %s: %s", reseller_id, message)
+                else:
+                    logger.warning("Failed to send alert for reseller %s", reseller_id)
+                    
+        except Exception as exc:
+            logger.warning("Failed to check reseller threshold: %s", exc)
 
     def _maybe_alert(self, total_mbps: float) -> None:
         now = time.time()

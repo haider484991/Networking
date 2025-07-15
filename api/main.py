@@ -173,73 +173,11 @@ class NTTNAlert(BaseModel):
     sent_at: datetime
     whatsapp_sent: bool
 
-# Mock data for development
-MOCK_RESELLERS = [
-    {"id": "r1", "name": "SpeedServe", "plan_mbps": 500, "threshold": 0.8, "phone": "+8801000000001"},
-    {"id": "r2", "name": "OptiLine", "plan_mbps": 100, "threshold": 0.8, "phone": "+8801000000002"},
-    {"id": "r3", "name": "LowCostISP", "plan_mbps": 50, "threshold": 0.8, "phone": "+8801000000003"},
-    {"id": "r4", "name": "DownTownNet", "plan_mbps": 200, "threshold": 0.8, "phone": "+8801000000004"},
-]
+# Mock data for development - REMOVED - Using database only
+# MOCK_RESELLERS and MOCK_ALERTS removed
 
-# Mock alerts for development
-MOCK_ALERTS = [
-    {
-        "id": "alert_1",
-        "reseller_id": "r1",
-        "level": "YELLOW",
-        "message": "Bandwidth usage exceeded 80% threshold (420/500 Mbps)",
-        "sent_at": datetime.now() - timedelta(hours=1)
-    },
-    {
-        "id": "alert_2",
-        "reseller_id": "r2",
-        "level": "RED",
-        "message": "Bandwidth usage exceeded 100% threshold (105/100 Mbps)",
-        "sent_at": datetime.now() - timedelta(hours=2)
-    },
-    {
-        "id": "alert_3",
-        "reseller_id": "r4",
-        "level": "LINK_DOWN",
-        "message": "Connection lost to reseller equipment",
-        "sent_at": datetime.now() - timedelta(hours=3)
-    },
-    {
-        "id": "alert_4",
-        "reseller_id": "r3",
-        "level": "YELLOW",
-        "message": "Bandwidth usage exceeded 80% threshold (42/50 Mbps)",
-        "sent_at": datetime.now() - timedelta(hours=4)
-    },
-    {
-        "id": "alert_5",
-        "reseller_id": "r1",
-        "level": "RED",
-        "message": "Bandwidth usage exceeded 100% threshold (520/500 Mbps)",
-        "sent_at": datetime.now() - timedelta(hours=6)
-    },
-    {
-        "id": "alert_6",
-        "reseller_id": "r2",
-        "level": "YELLOW",
-        "message": "Bandwidth usage exceeded 80% threshold (85/100 Mbps)",
-        "sent_at": datetime.now() - timedelta(hours=8)
-    },
-    {
-        "id": "alert_7",
-        "reseller_id": "r4",
-        "level": "YELLOW",
-        "message": "Bandwidth usage exceeded 80% threshold (165/200 Mbps)",
-        "sent_at": datetime.now() - timedelta(hours=12)
-    },
-    {
-        "id": "alert_8",
-        "reseller_id": "r3",
-        "level": "RED",
-        "message": "Bandwidth usage exceeded 100% threshold (52/50 Mbps)",
-        "sent_at": datetime.now() - timedelta(hours=18)
-    }
-]
+# Mock alerts for development - REMOVED - Using database only
+# MOCK_ALERTS removed
 
 @app.get("/")
 async def root():
@@ -254,27 +192,27 @@ async def get_resellers():
     """Get all resellers from database."""
     try:
         client = get_client()
-        result = client.table("resellers").select("*").execute()
-        return result.data
+        response = client.table("resellers").select("*").execute()
+        return [{"resellers": response.data}][0]["resellers"] if response.data else []
     except Exception as e:
-        print(f"Database error, falling back to mock data: {e}")
-        return MOCK_RESELLERS
+        print(f"Database error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch resellers: {str(e)}")
 
 @app.get("/resellers/{reseller_id}", response_model=Reseller)
 async def get_reseller(reseller_id: str):
-    """Get specific reseller from database."""
+    """Get a specific reseller from database."""
     try:
         client = get_client()
-        result = client.table("resellers").select("*").eq("id", reseller_id).execute()
-        if not result.data:
+        response = client.table("resellers").select("*").eq("id", reseller_id).execute()
+        if response.data:
+            return response.data[0]
+        else:
             raise HTTPException(status_code=404, detail="Reseller not found")
-        return result.data[0]
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Database error, falling back to mock data: {e}")
-        reseller = next((r for r in MOCK_RESELLERS if r["id"] == reseller_id), None)
-        if not reseller:
-            raise HTTPException(status_code=404, detail="Reseller not found")
-        return reseller
+        print(f"Database error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch reseller: {str(e)}")
 
 @app.post("/resellers", response_model=Reseller)
 async def create_reseller(request: CreateResellerRequest):
@@ -391,91 +329,49 @@ async def delete_reseller(reseller_id: str):
 
 @app.get("/resellers/{reseller_id}/usage", response_model=List[UsagePoint])
 async def get_reseller_usage(reseller_id: str, hours: int = 24):
-    """Get usage data for a reseller over the last N hours."""
+    """Get reseller usage from database for the last N hours."""
     try:
         client = get_client()
         since = datetime.now() - timedelta(hours=hours)
         
-        response = client.table("usage_5m").select("*").eq("reseller_id", reseller_id).gte("ts", since.isoformat()).order("ts").execute()
-        
-        if not response.data:
-            # Return mock data if no real data
-            return _generate_mock_usage(reseller_id, hours)
-            
-        return response.data
+        result = client.table("usage_5m").select("*").eq("reseller_id", reseller_id).gte("ts", since.isoformat()).order("ts").execute()
+        return result.data
     except Exception as e:
-        # Fallback to mock data
-        return _generate_mock_usage(reseller_id, hours)
-
-def _generate_mock_usage(reseller_id: str, hours: int):
-    """Generate mock usage data for testing."""
-    data = []
-    now = datetime.now()
-    
-    for i in range(hours * 12):  # 12 points per hour (5-minute intervals)
-        timestamp = now - timedelta(minutes=i * 5)
-        base_mbps = 50 if reseller_id == "r3" else 100
-        variation = random.uniform(0.7, 1.3)
-        
-        rx_mbps = base_mbps * variation * 0.6
-        tx_mbps = base_mbps * variation * 0.4
-        
-        data.append({
-            "ts": timestamp.isoformat(),
-            "reseller_id": reseller_id,
-            "rx_mbps": rx_mbps,
-            "tx_mbps": tx_mbps
-        })
-    
-    return sorted(data, key=lambda x: x["ts"])
+        print(f"Database error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get usage data: {str(e)}")
 
 @app.get("/alerts", response_model=List[Alert])
 async def get_alerts(limit: int = 50):
-    """Get recent alerts."""
+    """Get recent alerts from database."""
     try:
         client = get_client()
         response = client.table("alerts").select("*").order("sent_at", desc=True).limit(limit).execute()
-        if response.data:
-            return response.data
+        return response.data if response.data else []
     except Exception as e:
         print(f"Database error: {e}")
-    
-    # Return mock alerts if database fails
-    return sorted(MOCK_ALERTS, key=lambda x: x["sent_at"], reverse=True)[:limit]
+        raise HTTPException(status_code=500, detail=f"Failed to fetch alerts: {str(e)}")
 
 @app.get("/resellers/{reseller_id}/alerts", response_model=List[Alert])
-async def get_reseller_alerts(reseller_id: str, limit: int = 20):
-    """Get alerts for a specific reseller."""
+async def get_reseller_alerts(reseller_id: str, limit: int = 10):
+    """Get alerts for a specific reseller from database."""
     try:
         client = get_client()
         response = client.table("alerts").select("*").eq("reseller_id", reseller_id).order("sent_at", desc=True).limit(limit).execute()
-        if response.data:
-            return response.data
+        return response.data if response.data else []
     except Exception as e:
         print(f"Database error: {e}")
-    
-    # Return mock alerts for this reseller if database fails
-    reseller_alerts = [alert for alert in MOCK_ALERTS if alert["reseller_id"] == reseller_id]
-    return sorted(reseller_alerts, key=lambda x: x["sent_at"], reverse=True)[:limit]
+        raise HTTPException(status_code=500, detail=f"Failed to fetch reseller alerts: {str(e)}")
 
 @app.get("/link-state", response_model=List[LinkState])
 async def get_link_states():
-    """Get current link states for all resellers."""
+    """Get current link states for all resellers from database."""
     try:
         client = get_client()
         response = client.table("link_state").select("*").execute()
-        if response.data:
-            return response.data
+        return response.data if response.data else []
     except Exception as e:
         print(f"Database error: {e}")
-    
-    # Return mock link states if database fails
-    return [
-        {"reseller_id": "r1", "state": "UP", "since": datetime.now().isoformat()},
-        {"reseller_id": "r2", "state": "UP", "since": datetime.now().isoformat()},
-        {"reseller_id": "r3", "state": "IDLE", "since": datetime.now().isoformat()},
-        {"reseller_id": "r4", "state": "DOWN", "since": datetime.now().isoformat()},
-    ]
+        raise HTTPException(status_code=500, detail=f"Failed to fetch link states: {str(e)}")
 
 @app.get("/resellers/{reseller_id}/report")
 async def download_reseller_report(reseller_id: str):

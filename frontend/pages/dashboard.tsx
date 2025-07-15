@@ -127,31 +127,10 @@ export default function Dashboard() {
       console.error('Failed to load data from API:', error);
       setApiAvailable(false);
       
-      // Use mock data when API is not available
-      const mockResellers: Reseller[] = [
-        { id: 'r1', name: 'Downtown Office', plan_mbps: 500, threshold: 0.8, phone: '+8801000000001' },
-        { id: 'r2', name: 'Warehouse', plan_mbps: 100, threshold: 0.8, phone: '+8801000000002' },
-        { id: 'r3', name: 'Branch Office', plan_mbps: 50, threshold: 0.8, phone: '+8801000000003' },
-        { id: 'r4', name: 'Remote Site', plan_mbps: 200, threshold: 0.8, phone: '+8801000000004' },
-      ];
-      
-      const mockLinkStates: LinkState[] = [
-        { reseller_id: 'r1', state: 'UP', since: new Date().toISOString() },
-        { reseller_id: 'r2', state: 'UP', since: new Date().toISOString() },
-        { reseller_id: 'r3', state: 'UP', since: new Date().toISOString() },
-        { reseller_id: 'r4', state: 'DOWN', since: new Date(Date.now() - 300000).toISOString() },
-      ];
-      
-      const mockUsage = {
-        r1: 420, // 84% of 500
-        r2: 75,  // 75% of 100
-        r3: 30,  // 60% of 50
-        r4: 0,   // 0% (down)
-      };
-      
-      setResellers(mockResellers);
-      setLinkStates(mockLinkStates);
-      setCurrentUsage(mockUsage);
+      // Set empty data when API is not available
+      setResellers([]);
+      setLinkStates([]);
+      setCurrentUsage({});
     } finally {
       setDataLoading(false);
     }
@@ -279,8 +258,7 @@ export default function Dashboard() {
             <AlertIcon />
             <AlertTitle>API Backend Not Running</AlertTitle>
             <AlertDescription>
-              The API backend (port 8000) is not available. Showing mock data for demonstration.
-              Start the backend with <Code>docker-compose up</Code> to see live data.
+              The API backend (port 8000) is not available. Please start it to see live data.
             </AlertDescription>
           </Alert>
         )}

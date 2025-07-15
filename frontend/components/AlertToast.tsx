@@ -1,60 +1,68 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useToast } from '@chakra-ui/react';
 
 interface Alert {
   id: string;
-  level: 'YELLOW' | 'RED' | 'LINK_DOWN';
+  level: string;
   message: string;
-  timestamp: string;
+  timestamp?: string;
+  sent_at?: string;
 }
-
-// Mock alert stream - in real app this would come from Supabase Realtime
-const mockAlertStream: Alert[] = [
-  {
-    id: 'alert1',
-    level: 'YELLOW',
-    message: 'SpeedServe bandwidth usage at 85%',
-    timestamp: new Date().toISOString(),
-  },
-  {
-    id: 'alert2',
-    level: 'RED',
-    message: 'OptiLine bandwidth exceeded 100%',
-    timestamp: new Date(Date.now() + 30000).toISOString(),
-  },
-  {
-    id: 'alert3',
-    level: 'LINK_DOWN',
-    message: 'DownTownNet link down - 3 ping failures',
-    timestamp: new Date(Date.now() + 60000).toISOString(),
-  },
-];
 
 export function AlertToast() {
   const toast = useToast();
-  const [alertIndex, setAlertIndex] = useState(0);
+  const [lastAlertCheck, setLastAlertCheck] = useState<Date>(new Date());
 
   useEffect(() => {
-    // Simulate alerts coming in every 30 seconds
-    const interval = setInterval(() => {
-      if (alertIndex < mockAlertStream.length) {
-        const alert = mockAlertStream[alertIndex];
+    // Check for new alerts every 30 seconds from API
+    const checkForNewAlerts = async () => {
+      try {
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${API_BASE}/alerts?limit=5`);
         
-        toast({
-          title: `${alert.level} Alert`,
-          description: alert.message,
-          status: alert.level === 'RED' ? 'error' : alert.level === 'YELLOW' ? 'warning' : 'info',
-          duration: 5000,
-          isClosable: true,
-          position: 'top-right',
-        });
-        
-        setAlertIndex(prev => prev + 1);
+        if (response.ok) {
+          const alerts: Alert[] = await response.json();
+          
+          // Filter alerts that are newer than our last check
+          const newAlerts = alerts.filter(alert => 
+            new Date(alert.timestamp || alert.sent_at) > lastAlertCheck
+          );
+          
+          // Show toast for each new alert
+          newAlerts.forEach(alert => {
+            const statusType = alert.level === 'RED' ? 'error' : 
+                             alert.level === 'YELLOW' ? 'warning' : 
+                             alert.level === 'LINK_DOWN' ? 'error' : 'info';
+            
+            toast({
+              title: `${alert.level} Alert`,
+              description: alert.message,
+              status: statusType,
+              duration: 5000,
+              isClosable: true,
+              position: 'top-right',
+            });
+          });
+          
+          if (newAlerts.length > 0) {
+            setLastAlertCheck(new Date());
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch alerts for toast notifications:', error);
+        // Silently fail - don't show alerts if API is not available
       }
-    }, 30000);
+    };
 
-    return () => clearInterval(interval);
-  }, [alertIndex, toast]);
+    // Initial check after 5 seconds, then every 30 seconds
+    const timeout = setTimeout(checkForNewAlerts, 5000);
+    const interval = setInterval(checkForNewAlerts, 30000);
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [lastAlertCheck, toast]);
 
   return null; // This component doesn't render anything visible
 } 

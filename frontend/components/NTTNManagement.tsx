@@ -107,6 +107,8 @@ export default function NTTNManagement() {
       if (statusResponse.ok) {
         const statusData = await statusResponse.json();
         setLinks(statusData);
+      } else {
+        throw new Error(`API returned ${statusResponse.status}`);
       }
 
       // Load recent alerts
@@ -114,24 +116,23 @@ export default function NTTNManagement() {
       if (alertsResponse.ok) {
         const alertsData = await alertsResponse.json();
         setAlerts(alertsData);
+      } else {
+        throw new Error(`API returned ${alertsResponse.status}`);
       }
     } catch (error) {
       console.error('Error loading NTTN data:', error);
-      // Use mock data for demo
-      setLinks([
-        {
-          link_id: 'nttn_main',
-          name: 'NTTN Main Link',
-          device_ip: '103.106.119.201',
-          total_capacity_mbps: 1000,
-          threshold_mbps: 950,
-          current_usage_mbps: 720,
-          utilization_percent: 72,
-          last_updated: new Date().toISOString(),
-          status: 'OK'
-        }
-      ]);
+      // Set empty data when API fails
+      setLinks([]);
       setAlerts([]);
+      
+      // Show toast notification for API error
+      toast({
+        title: 'NTTN Data Unavailable',
+        description: 'Unable to load NTTN monitoring data. Please check API backend.',
+        status: 'warning',
+        duration: 5000,
+        isClosable: true,
+      });
     } finally {
       setLoading(false);
     }
