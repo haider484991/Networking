@@ -149,21 +149,7 @@ export default function ResellerLeaderboard() {
   };
 
   if (loading) {
-    return (
-      <Card bg={glassBg} backdropFilter="blur(10px)" borderRadius="xl" shadow="lg">
-        <CardHeader>
-          <Heading size="md">Top Resellers by Usage</Heading>
-        </CardHeader>
-        <CardBody>
-          <Center py={8}>
-            <VStack spacing={4}>
-              <Spinner size="lg" color="blue.500" />
-              <Text>Loading leaderboard...</Text>
-            </VStack>
-          </Center>
-        </CardBody>
-      </Card>
-    );
+    return null; // Make loading invisible
   }
 
   if (error) {

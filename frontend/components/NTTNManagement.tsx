@@ -189,14 +189,7 @@ export default function NTTNManagement() {
   };
 
   if (loading) {
-    return (
-      <Center h="400px">
-        <VStack spacing={4}>
-          <Spinner size="lg" color="blue.500" />
-          <Text>Loading NTTN Link data...</Text>
-        </VStack>
-      </Center>
-    );
+    return null; // Make loading invisible
   }
 
   return (

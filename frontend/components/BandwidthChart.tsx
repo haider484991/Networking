@@ -237,14 +237,7 @@ export default function BandwidthChart({ resellers, height = 400 }: BandwidthCha
   };
 
   if (loading) {
-    return (
-      <Center h={height}>
-        <VStack spacing={4}>
-          <Spinner size="lg" color="blue.500" />
-          <Text>Loading bandwidth data...</Text>
-        </VStack>
-      </Center>
-    );
+    return null; // Make loading invisible
   }
 
   if (error) {

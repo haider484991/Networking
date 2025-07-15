@@ -92,21 +92,11 @@ export default function ResellerDetail() {
   console.log('Reseller detail render - loading:', loading, 'dataLoading:', dataLoading, 'reseller:', reseller?.name, 'id:', id);
 
   if (loading) {
-    return (
-      <Center h="100vh">
-        <Spinner size="lg" />
-        <Text ml={4}>Loading auth...</Text>
-      </Center>
-    );
+    return null; // Make loading invisible
   }
 
   if (dataLoading) {
-    return (
-      <Center h="100vh">
-        <Spinner size="lg" />
-        <Text ml={4}>Loading reseller data...</Text>
-      </Center>
-    );
+    return null; // Make loading invisible
   }
 
   if (!reseller) {

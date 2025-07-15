@@ -55,6 +55,7 @@ import BandwidthChart from '../components/BandwidthChart';
 import NTTNChart from '../components/NTTNChart';
 import NTTNManagement from '../components/NTTNManagement';
 import { AlertToast } from '../components/AlertToast';
+import { LoadingOverlay } from '../components/LoadingOverlay';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -202,16 +203,17 @@ export default function Dashboard() {
     onDeleteOpen();
   };
 
-  if (dataLoading) {
-    return (
-      <Center h="100vh" bgGradient={bgGradient}>
-        <VStack spacing={4}>
-          <Spinner size="xl" color="white" />
-          <Text color="white" fontSize="lg">Loading dashboard...</Text>
-        </VStack>
-      </Center>
-    );
-  }
+  // Remove the loading check - page will load directly
+  // if (dataLoading) {
+  //   return (
+  //     <LoadingOverlay 
+  //       isLoading={true} 
+  //       type="page" 
+  //       message="Loading ISP Dashboard..." 
+  //       showProgress={true}
+  //     />
+  //   );
+  // }
 
   return (
     <Box minH="100vh" bg="gray.50">

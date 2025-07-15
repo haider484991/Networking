@@ -412,8 +412,8 @@ async def get_router_status():
 @app.get("/router/configs", response_model=List[RouterConfig])
 async def get_router_configs():
     """Get all router configurations."""
-        try:
-            client = get_client()
+    try:
+        client = get_client()
         result = client.table("router_configs").select("*").execute()
         return result.data
     except Exception as e:
