@@ -226,9 +226,15 @@ export default function Dashboard() {
               <Link href="/dashboard">
                 <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Dashboard</Text>
               </Link>
-              <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Devices</Text>
-              <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Resellers</Text>
-              <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Alerts</Text>
+              <Link href="/devices">
+                <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Devices</Text>
+              </Link>
+              <Link href="/resellers">
+                <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Resellers</Text>
+              </Link>
+              <Link href="/alerts">
+                <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Alerts</Text>
+              </Link>
               <Link href="/settings">
                 <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Settings</Text>
               </Link>
