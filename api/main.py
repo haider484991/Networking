@@ -311,11 +311,16 @@ async def delete_reseller(reseller_id: str):
         try:
             cfg = load_config()
             manager = BandwidthManager(cfg)
-            success = manager.remove_reseller_from_router(reseller_id)
-            if success:
-                print(f"Successfully removed reseller {reseller_id} from router")
-            else:
-                print(f"Failed to remove reseller {reseller_id} from router")
+            # Get router mappings for this reseller to remove from all routers
+            mapping_result = client.table("reseller_router_mapping").select("router_id").eq("reseller_id", reseller_id).execute()
+            
+            for mapping in mapping_result.data:
+                router_id = mapping["router_id"]
+                success = manager.remove_reseller_from_router(reseller_id, router_id)
+                if success:
+                    print(f"Successfully removed reseller {reseller_id} from router {router_id}")
+                else:
+                    print(f"Failed to remove reseller {reseller_id} from router {router_id}")
         except Exception as e:
             print(f"Error removing from router: {e}")
         

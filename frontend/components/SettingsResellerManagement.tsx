@@ -1,4 +1,38 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Container,
+  Heading,
+  Text,
+  Button,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Input,
+  Select,
+  VStack,
+  HStack,
+  Badge,
+  Spinner,
+  Alert,
+  AlertIcon,
+  AlertDescription,
+  useDisclosure,
+  Grid,
+  GridItem,
+  Card,
+  CardBody,
+  IconButton,
+  Divider,
+  useColorModeValue
+} from '@chakra-ui/react';
+import { AddIcon, EditIcon, DeleteIcon, LinkIcon } from '@chakra-ui/icons';
 
 interface Reseller {
   id: string;
@@ -49,8 +83,8 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
   const [mappings, setMappings] = useState<RouterMapping[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [showResellerModal, setShowResellerModal] = useState(false);
-  const [showMappingModal, setShowMappingModal] = useState(false);
+  const { isOpen: isResellerModalOpen, onOpen: onResellerModalOpen, onClose: onResellerModalClose } = useDisclosure();
+  const { isOpen: isMappingModalOpen, onOpen: onMappingModalOpen, onClose: onMappingModalClose } = useDisclosure();
   const [editingReseller, setEditingReseller] = useState<Reseller | null>(null);
   
   const [resellerForm, setResellerForm] = useState<ResellerFormData>({
@@ -65,6 +99,9 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
     target_ip: '',
     queue_name: ''
   });
+
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -95,9 +132,7 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
     }
   };
 
-  const handleResellerSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleResellerSubmit = async () => {
     try {
       const url = editingReseller 
         ? `${API_BASE}/resellers/${editingReseller.id}`
@@ -118,7 +153,7 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
           editingReseller ? 'Reseller updated successfully' : 'Reseller created successfully',
           'success'
         );
-        setShowResellerModal(false);
+        onResellerModalClose();
         setEditingReseller(null);
         resetResellerForm();
         fetchData();
@@ -131,9 +166,7 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
     }
   };
 
-  const handleMappingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleMappingSubmit = async () => {
     try {
       const response = await fetch(`${API_BASE}/api/router-mappings`, {
         method: 'POST',
@@ -145,7 +178,7 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
 
       if (response.ok) {
         onAlert('Router mapping created successfully', 'success');
-        setShowMappingModal(false);
+        onMappingModalClose();
         resetMappingForm();
         fetchData();
       } else {
@@ -228,7 +261,7 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
       setEditingReseller(null);
       resetResellerForm();
     }
-    setShowResellerModal(true);
+    onResellerModalOpen();
   };
 
   const openMappingModal = (resellerId?: string) => {
@@ -236,7 +269,7 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
     if (resellerId) {
       setMappingForm(prev => ({ ...prev, reseller_id: resellerId }));
     }
-    setShowMappingModal(true);
+    onMappingModalOpen();
   };
 
   const getResellerMappings = (resellerId: string) => {
@@ -245,277 +278,271 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
 
   if (loading) {
     return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading resellers...</p>
-      </div>
+      <Box textAlign="center" py={8}>
+        <Spinner size="xl" color="blue.500" />
+        <Text mt={4} color="gray.600">Loading resellers...</Text>
+      </Box>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Reseller Management</h2>
-          <p className="text-gray-600">Manage resellers and their router assignments</p>
-        </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => openMappingModal()}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
-          >
-            <span>🔗</span>
-            <span>Add Mapping</span>
-          </button>
-          <button
-            onClick={() => openResellerModal()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-          >
-            <span>+</span>
-            <span>Add Reseller</span>
-          </button>
-        </div>
-      </div>
+    <Container maxW="container.xl" p={0}>
+      <Box p={4}>
+        <HStack justifyContent="space-between" alignItems="center" mb={4}>
+          <VStack alignItems="flex-start">
+            <Heading size="lg">Reseller Management</Heading>
+            <Text fontSize="md" color="gray.600">Manage resellers and their router assignments</Text>
+          </VStack>
+          <HStack spacing={3}>
+            <Button
+              leftIcon={<LinkIcon />}
+              colorScheme="green"
+              onClick={() => openMappingModal()}
+            >
+              Add Mapping
+            </Button>
+            <Button
+              leftIcon={<AddIcon />}
+              colorScheme="blue"
+              onClick={() => openResellerModal()}
+            >
+              Add Reseller
+            </Button>
+          </HStack>
+        </HStack>
 
-      {/* Resellers and Mappings */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Resellers */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b">
-            <h3 className="text-lg font-semibold">Resellers ({resellers.length})</h3>
-          </div>
-          <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-            {resellers.map((reseller) => {
-              const resellerMappings = getResellerMappings(reseller.id);
-              return (
-                <div key={reseller.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <h4 className="font-medium text-gray-900">{reseller.name}</h4>
-                        <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                          {reseller.plan_mbps} Mbps
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500">ID: {reseller.id}</p>
-                      <p className="text-sm text-gray-500">
-                        {resellerMappings.length} router{resellerMappings.length !== 1 ? 's' : ''} assigned
-                      </p>
-                      {resellerMappings.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {resellerMappings.map((mapping) => (
-                            <div key={mapping.id} className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                              {mapping.router_configs?.name} → {mapping.target_ip}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => openMappingModal(reseller.id)}
-                        className="text-green-600 hover:text-green-900 text-sm"
-                        title="Add Router Mapping"
-                      >
-                        🔗
-                      </button>
-                      <button
-                        onClick={() => openResellerModal(reseller)}
-                        className="text-yellow-600 hover:text-yellow-900 text-sm"
-                        title="Edit Reseller"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => handleDeleteReseller(reseller.id)}
-                        className="text-red-600 hover:text-red-900 text-sm"
-                        title="Delete Reseller"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {resellers.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No resellers found. Add your first reseller to get started.
-              </div>
-            )}
-          </div>
-        </div>
+        <Grid templateColumns={{ base: '1fr', lg: 'repeat(2, 1fr)' }} gap={6} mb={6}>
+          {/* Resellers */}
+          <GridItem>
+            <Card bg={cardBg} boxShadow="md">
+              <CardBody>
+                <Heading size="md" mb={2}>Resellers ({resellers.length})</Heading>
+                <Divider mb={2} />
+                <VStack align="stretch" spacing={2} maxH="96" overflowY="auto">
+                  {resellers.map((reseller) => {
+                    const resellerMappings = getResellerMappings(reseller.id);
+                    return (
+                      <Box key={reseller.id} p={2} borderRadius="md" bg="gray.50">
+                        <HStack justifyContent="space-between" alignItems="center">
+                          <VStack align="stretch" spacing={1}>
+                            <HStack>
+                              <Badge colorScheme="blue">{reseller.plan_mbps} Mbps</Badge>
+                              <Text fontSize="sm" fontWeight="medium" color="gray.900">
+                                {reseller.name}
+                              </Text>
+                            </HStack>
+                            <Text fontSize="xs" color="gray.500">ID: {reseller.id}</Text>
+                            <Text fontSize="xs" color="gray.500">
+                              {resellerMappings.length} router{resellerMappings.length !== 1 ? 's' : ''} assigned
+                            </Text>
+                            {resellerMappings.length > 0 && (
+                              <VStack align="stretch" spacing={1} mt={1}>
+                                {resellerMappings.map((mapping) => (
+                                  <Box key={mapping.id} p={1} borderRadius="sm" bg="gray.100" fontSize="xs" color="gray.600">
+                                    {mapping.router_configs?.name} → {mapping.target_ip}
+                                  </Box>
+                                ))}
+                              </VStack>
+                            )}
+                          </VStack>
+                          <HStack spacing={1}>
+                            <IconButton
+                              aria-label="Add Router Mapping"
+                              icon={<LinkIcon />}
+                              colorScheme="green"
+                              size="sm"
+                              onClick={() => openMappingModal(reseller.id)}
+                            />
+                            <IconButton
+                              aria-label="Edit Reseller"
+                              icon={<EditIcon />}
+                              colorScheme="yellow"
+                              size="sm"
+                              onClick={() => openResellerModal(reseller)}
+                            />
+                            <IconButton
+                              aria-label="Delete Reseller"
+                              icon={<DeleteIcon />}
+                              colorScheme="red"
+                              size="sm"
+                              onClick={() => handleDeleteReseller(reseller.id)}
+                            />
+                          </HStack>
+                        </HStack>
+                      </Box>
+                    );
+                  })}
+                  {resellers.length === 0 && (
+                    <Box textAlign="center" py={8} color="gray.500">
+                      No resellers found. Add your first reseller to get started.
+                    </Box>
+                  )}
+                </VStack>
+              </CardBody>
+            </Card>
+          </GridItem>
 
-        {/* Router Mappings */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b">
-            <h3 className="text-lg font-semibold">Router Mappings ({mappings.length})</h3>
-          </div>
-          <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-            {mappings.map((mapping) => (
-              <div key={mapping.id} className="p-4 hover:bg-gray-50">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <h4 className="font-medium text-gray-900">
-                        {mapping.resellers?.name || mapping.reseller_id}
-                      </h4>
-                      <span className="text-gray-400">→</span>
-                      <span className="text-sm text-gray-600">
-                        {mapping.router_configs?.name || mapping.router_id}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500">IP: {mapping.target_ip}</p>
-                    <p className="text-sm text-gray-500">Queue: {mapping.queue_name}</p>
-                    <p className="text-xs text-gray-400">
-                      Router: {mapping.router_configs?.host}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteMapping(mapping.id)}
-                    className="text-red-600 hover:text-red-900 text-sm"
-                    title="Delete Mapping"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            ))}
-            {mappings.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No router mappings found. Create mappings to assign resellers to routers.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+          {/* Router Mappings */}
+          <GridItem>
+            <Card bg={cardBg} boxShadow="md">
+              <CardBody>
+                <Heading size="md" mb={2}>Router Mappings ({mappings.length})</Heading>
+                <Divider mb={2} />
+                <VStack align="stretch" spacing={2} maxH="96" overflowY="auto">
+                  {mappings.map((mapping) => (
+                    <Box key={mapping.id} p={2} borderRadius="md" bg="gray.50">
+                      <HStack justifyContent="space-between" alignItems="center">
+                        <VStack align="stretch" spacing={1}>
+                          <HStack>
+                            <Badge colorScheme="blue">
+                              {mapping.resellers?.name || mapping.reseller_id}
+                            </Badge>
+                            <Text fontSize="sm" color="gray.400">→</Text>
+                            <Text fontSize="sm" fontWeight="medium" color="gray.600">
+                              {mapping.router_configs?.name || mapping.router_id}
+                            </Text>
+                          </HStack>
+                          <Text fontSize="sm" color="gray.500">IP: {mapping.target_ip}</Text>
+                          <Text fontSize="sm" color="gray.500">Queue: {mapping.queue_name}</Text>
+                          <Text fontSize="xs" color="gray.400">
+                            Router: {mapping.router_configs?.host}
+                          </Text>
+                        </VStack>
+                        <IconButton
+                          aria-label="Delete Mapping"
+                          icon={<DeleteIcon />}
+                          colorScheme="red"
+                          size="sm"
+                          onClick={() => handleDeleteMapping(mapping.id)}
+                        />
+                      </HStack>
+                    </Box>
+                  ))}
+                  {mappings.length === 0 && (
+                    <Box textAlign="center" py={8} color="gray.500">
+                      No router mappings found. Create mappings to assign resellers to routers.
+                    </Box>
+                  )}
+                </VStack>
+              </CardBody>
+            </Card>
+          </GridItem>
+        </Grid>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="text-2xl">👥</div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Resellers</p>
-              <p className="text-2xl font-bold text-gray-900">{resellers.length}</p>
-            </div>
-          </div>
-        </div>
+        {/* Summary Stats */}
+        <Grid templateColumns={{ base: '1fr', md: 'repeat(3, 1fr)' }} gap={4} mt={6}>
+          <GridItem>
+            <Card bg={cardBg} boxShadow="md">
+              <CardBody textAlign="center">
+                <HStack>
+                  <Box fontSize="2xl">👥</Box>
+                  <VStack align="stretch" spacing={0}>
+                    <Text fontSize="sm" color="gray.600">Total Resellers</Text>
+                    <Text fontSize="2xl" fontWeight="bold" color="gray.900">
+                      {resellers.length}
+                    </Text>
+                  </VStack>
+                </HStack>
+              </CardBody>
+            </Card>
+          </GridItem>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="text-2xl">🔗</div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Router Mappings</p>
-              <p className="text-2xl font-bold text-blue-600">{mappings.length}</p>
-            </div>
-          </div>
-        </div>
+          <GridItem>
+            <Card bg={cardBg} boxShadow="md">
+              <CardBody textAlign="center">
+                <HStack>
+                  <Box fontSize="2xl">🔗</Box>
+                  <VStack align="stretch" spacing={0}>
+                    <Text fontSize="sm" color="gray.600">Router Mappings</Text>
+                    <Text fontSize="2xl" color="blue.600" fontWeight="bold">
+                      {mappings.length}
+                    </Text>
+                  </VStack>
+                </HStack>
+              </CardBody>
+            </Card>
+          </GridItem>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="text-2xl">📊</div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Bandwidth</p>
-              <p className="text-2xl font-bold text-green-600">
-                {resellers.reduce((sum, r) => sum + r.plan_mbps, 0)} Mbps
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+          <GridItem>
+            <Card bg={cardBg} boxShadow="md">
+              <CardBody textAlign="center">
+                <HStack>
+                  <Box fontSize="2xl">📊</Box>
+                  <VStack align="stretch" spacing={0}>
+                    <Text fontSize="sm" color="gray.600">Total Bandwidth</Text>
+                    <Text fontSize="2xl" color="green.600" fontWeight="bold">
+                      {resellers.reduce((sum, r) => sum + r.plan_mbps, 0)} Mbps
+                    </Text>
+                  </VStack>
+                </HStack>
+              </CardBody>
+            </Card>
+          </GridItem>
+        </Grid>
+      </Box>
 
       {/* Add/Edit Reseller Modal */}
-      {showResellerModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
-              {editingReseller ? 'Edit Reseller' : 'Add New Reseller'}
-            </h3>
-            
-            <form onSubmit={handleResellerSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reseller ID
-                </label>
-                <input
+      <Modal isOpen={isResellerModalOpen} onClose={onResellerModalClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            {editingReseller ? 'Edit Reseller' : 'Add New Reseller'}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl>
+                <FormLabel>Reseller ID</FormLabel>
+                <Input
                   type="text"
                   value={resellerForm.id}
                   onChange={(e) => setResellerForm({...resellerForm, id: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  required
-                  disabled={!!editingReseller}
+                  isDisabled={!!editingReseller}
                 />
-              </div>
+              </FormControl>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name
-                </label>
-                <input
+              <FormControl>
+                <FormLabel>Name</FormLabel>
+                <Input
                   type="text"
                   value={resellerForm.name}
                   onChange={(e) => setResellerForm({...resellerForm, name: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  required
                 />
-              </div>
+              </FormControl>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bandwidth Plan (Mbps)
-                </label>
-                <input
+              <FormControl>
+                <FormLabel>Bandwidth Plan (Mbps)</FormLabel>
+                <Input
                   type="number"
                   min="1"
                   value={resellerForm.plan_mbps}
                   onChange={(e) => setResellerForm({...resellerForm, plan_mbps: parseInt(e.target.value)})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  required
                 />
-              </div>
-
-              <div className="flex justify-end space-x-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowResellerModal(false);
-                    setEditingReseller(null);
-                    resetResellerForm();
-                  }}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  {editingReseller ? 'Update' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onResellerModalClose}>Cancel</Button>
+            <Button colorScheme="blue" onClick={handleResellerSubmit}>
+              {editingReseller ? 'Update' : 'Create'}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* Add Router Mapping Modal */}
-      {showMappingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Add Router Mapping</h3>
-            
-            <form onSubmit={handleMappingSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reseller
-                </label>
-                <select
+      <Modal isOpen={isMappingModalOpen} onClose={onMappingModalClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Add Router Mapping</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl>
+                <FormLabel>Reseller</FormLabel>
+                <Select
                   value={mappingForm.reseller_id}
                   onChange={(e) => setMappingForm({...mappingForm, reseller_id: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  required
                 >
                   <option value="">Select Reseller</option>
                   {resellers.map((reseller) => (
@@ -523,18 +550,14 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
                       {reseller.name} ({reseller.id})
                     </option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </FormControl>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Router
-                </label>
-                <select
+              <FormControl>
+                <FormLabel>Router</FormLabel>
+                <Select
                   value={mappingForm.router_id}
                   onChange={(e) => setMappingForm({...mappingForm, router_id: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  required
                 >
                   <option value="">Select Router</option>
                   {routers.filter(r => r.enabled).map((router) => (
@@ -542,59 +565,39 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
                       {router.name} ({router.host})
                     </option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </FormControl>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Target IP Address
-                </label>
-                <input
+              <FormControl>
+                <FormLabel>Target IP Address</FormLabel>
+                <Input
                   type="text"
                   value={mappingForm.target_ip}
                   onChange={(e) => setMappingForm({...mappingForm, target_ip: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
                   placeholder="192.168.1.100"
-                  required
                 />
-              </div>
+              </FormControl>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Queue Name (Optional)
-                </label>
-                <input
+              <FormControl>
+                <FormLabel>Queue Name (Optional)</FormLabel>
+                <Input
                   type="text"
                   value={mappingForm.queue_name}
                   onChange={(e) => setMappingForm({...mappingForm, queue_name: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
                   placeholder="Auto-generated if empty"
                 />
-              </div>
-
-              <div className="flex justify-end space-x-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowMappingModal(false);
-                    resetMappingForm();
-                  }}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                >
-                  Create Mapping
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onMappingModalClose}>Cancel</Button>
+            <Button colorScheme="green" onClick={handleMappingSubmit}>
+              Create Mapping
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </Container>
   );
 };
 
