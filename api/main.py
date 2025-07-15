@@ -215,6 +215,12 @@ async def get_reseller(reseller_id: str):
         print(f"Database response for reseller {reseller_id}: {response}")
         
         if response.data and len(response.data) > 0:
+            # Also check if a router mapping exists
+            mapping_response = client.table("reseller_router_mapping").select("reseller_id").eq("reseller_id", reseller_id).execute()
+            if not mapping_response.data:
+                print(f"No router mapping found for reseller {reseller_id}, treating as not found.")
+                raise HTTPException(status_code=404, detail=f"Reseller '{reseller_id}' found but has no router mapping.")
+
             reseller_data = response.data[0]
             print(f"Found reseller: {reseller_data}")
             return reseller_data
@@ -229,43 +235,6 @@ async def get_reseller(reseller_id: str):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to fetch reseller: {str(e)}")
 
-@app.post("/resellers", response_model=Reseller)
-async def create_reseller(request: CreateResellerRequest):
-    """Create a new reseller in database."""
-    try:
-        client = get_client()
-        
-        # Generate a new ID based on existing resellers
-        existing_result = client.table("resellers").select("id").execute()
-        existing_ids = [r["id"] for r in existing_result.data]
-        
-        # Find the next available ID
-        counter = 1
-        while f"r{counter}" in existing_ids:
-            counter += 1
-        reseller_id = f"r{counter}"
-        
-        new_reseller = {
-            "id": reseller_id,
-            "name": request.name,
-            "plan_mbps": request.plan_mbps,
-            "threshold": request.threshold,
-            "phone": request.phone
-        }
-        
-        # Insert into database
-        result = client.table("resellers").insert(new_reseller).execute()
-        
-        # Automatically set up router bandwidth limit for new reseller
-        # You'll need to provide the target IP - this could be done via additional API call
-        # For now, we'll just log that this needs to be done manually
-        print(f"TODO: Set up router bandwidth limit for new reseller {reseller_id}")
-        
-        return result.data[0]
-        
-    except Exception as e:
-        print(f"Database error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create reseller: {str(e)}")
 
 @app.put("/resellers/{reseller_id}", response_model=Reseller)
 async def update_reseller(reseller_id: str, request: UpdateResellerRequest):
@@ -291,6 +260,9 @@ async def update_reseller(reseller_id: str, request: UpdateResellerRequest):
         
         # Update in database
         result = client.table("resellers").update(update_data).eq("id", reseller_id).execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail=f"Failed to update reseller '{reseller_id}' or reseller not found.")
         
         # If plan_mbps was updated, trigger bandwidth update on router
         if request.plan_mbps is not None:
@@ -403,18 +375,35 @@ async def download_reseller_report(reseller_id: str):
     """Download PDF report for a reseller."""
     try:
         print(f"Generating report for reseller {reseller_id}")
-        
-        # First check if reseller exists
         client = get_client()
-        reseller_check = client.table("resellers").select("*").eq("id", reseller_id).execute()
-        if not reseller_check.data:
+
+        # 1. Fetch Reseller Info
+        reseller_response = client.table("resellers").select("*").eq("id", reseller_id).execute()
+        if not reseller_response.data:
             raise HTTPException(status_code=404, detail=f"Reseller '{reseller_id}' not found")
-        
+        reseller_info = reseller_response.data[0]
+
+        # 2. Fetch Usage Data (last 30 days)
+        since = datetime.now() - timedelta(days=30)
+        usage_response = client.table("usage_5m").select("*").eq("reseller_id", reseller_id).gte("ts", since.isoformat()).order("ts").execute()
+        usage_data = usage_response.data if usage_response.data else []
+
+        # 3. Fetch Alerts (last 30 days)
+        alerts_response = client.table("alerts").select("*").eq("reseller_id", reseller_id).gte("sent_at", since.isoformat()).order("sent_at", desc=True).execute()
+        alerts_data = alerts_response.data if alerts_response.data else []
+
+        # 4. Generate Report
         generator = PDFReportGenerator()
-        pdf_path = generator.generate_report(reseller_id)
-        
+        pdf_path = generator.generate_monthly_report(
+            reseller_id=reseller_id,
+            reseller_name=reseller_info['name'],
+            plan_mbps=reseller_info['plan_mbps'],
+            usage_data=usage_data,
+            alerts=alerts_data
+        )
+
         print(f"Report generated successfully for {reseller_id}: {pdf_path}")
-        
+
         return FileResponse(
             pdf_path,
             media_type="application/pdf",
