@@ -62,7 +62,7 @@ export default function Dashboard() {
   const [resellers, setResellers] = useState<Reseller[]>([]);
   const [linkStates, setLinkStates] = useState<LinkState[]>([]);
   const [currentUsage, setCurrentUsage] = useState<{ [key: string]: number }>({});
-  const [dataLoading, setDataLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
   const [apiAvailable, setApiAvailable] = useState(true);
   const [supabaseConfigured, setSupabaseConfigured] = useState(true);
 
