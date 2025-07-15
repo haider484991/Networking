@@ -23,6 +23,14 @@ export interface Alert {
   sent_at: string;
 }
 
+export interface VLAN {
+  vlan_id: number;
+  interface_name?: string;
+  capacity_mbps: number;
+  enabled?: boolean;
+  description?: string;
+}
+
 export interface LinkState {
   reseller_id: string;
   state: string;
@@ -114,6 +122,23 @@ class ApiClient {
     }
 
     return response.json();
+  }
+
+  async getRouterVLANs(routerId: string): Promise<VLAN[]> {
+    return this.request<{ router_id: string; router_name: string; devices: VLAN[] }>(`/api/routers/${routerId}/devices?type=vlan`).then(r => r.devices);
+  }
+
+  async syncRouterVLANs(routerId: string): Promise<VLAN[]> {
+    const response = await fetch(`${this.baseUrl}/api/vlans/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ router_id: routerId, force_sync: false })
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to sync VLANs: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return data.vlans || [];
   }
 
   async deleteReseller(id: string): Promise<void> {
