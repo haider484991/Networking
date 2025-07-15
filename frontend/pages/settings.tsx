@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { useAuth } from '../hooks/useAuth';
+// import { useAuth } from '../hooks/useAuth';
 
 // Component imports
 import RouterManagement from '../components/RouterManagement';
@@ -15,7 +15,7 @@ interface TabItem {
 }
 
 const SettingsPage: React.FC = () => {
-  const { user, loading } = useAuth();
+  // const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('routers');
   const [alert, setAlert] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -45,27 +45,28 @@ const SettingsPage: React.FC = () => {
     setTimeout(() => setAlert(null), 5000);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // Remove authentication requirement for admin settings
+  // if (loading) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+  //       <div className="text-center">
+  //         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+  //         <p className="mt-4 text-gray-600">Loading...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-          <p className="text-gray-600">Please log in to access the settings.</p>
-        </div>
-      </div>
-    );
-  }
+  // if (!user) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+  //       <div className="text-center">
+  //         <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+  //         <p className="text-gray-600">Please log in to access the settings.</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component || RouterManagement;
 
@@ -88,7 +89,7 @@ const SettingsPage: React.FC = () => {
                 </p>
               </div>
               <div className="text-sm text-gray-500">
-                Welcome, {user.email}
+                ISP Admin Interface
               </div>
             </div>
           </div>
