@@ -214,6 +214,22 @@ async def create_reseller(request: CreateResellerRequest):
     """Create a new reseller and its router mapping."""
     client = get_client()
     try:
+        # Validate request data
+        if not request.name or not request.name.strip():
+            raise HTTPException(status_code=422, detail="Name is required and cannot be empty")
+        if not request.phone or not request.phone.strip():
+            raise HTTPException(status_code=422, detail="Phone is required and cannot be empty")
+        if not request.router_id or not request.router_id.strip():
+            raise HTTPException(status_code=422, detail="Router ID is required and cannot be empty")
+        if not request.target_ip or not request.target_ip.strip():
+            raise HTTPException(status_code=422, detail="Target IP is required and cannot be empty")
+        if request.plan_mbps <= 0:
+            raise HTTPException(status_code=422, detail="Plan Mbps must be greater than 0")
+        if request.threshold <= 0 or request.threshold > 1:
+            raise HTTPException(status_code=422, detail="Threshold must be between 0 and 1")
+            
+        print(f"Creating reseller with data: {request.dict()}")
+
         # 1. Check if router exists and is not already mapped
         router_response = client.table("router_configs").select("id").eq("id", request.router_id).execute()
         if not router_response.data:
@@ -230,12 +246,13 @@ async def create_reseller(request: CreateResellerRequest):
         new_reseller_id = f"r{random.randint(1000, 9999)}" # Simple unique ID
         reseller_data = {
             "id": new_reseller_id,
-            "name": request.name,
+            "name": request.name.strip(),
             "plan_mbps": request.plan_mbps,
             "threshold": request.threshold,
-            "phone": request.phone
+            "phone": request.phone.strip()
         }
         
+        print(f"Inserting reseller data: {reseller_data}")
         insert_reseller_response = client.table("resellers").insert(reseller_data).execute()
         if not insert_reseller_response.data:
             raise HTTPException(status_code=500, detail="Failed to create reseller record.")
@@ -244,22 +261,27 @@ async def create_reseller(request: CreateResellerRequest):
         mapping_data = {
             "reseller_id": new_reseller_id,
             "router_id": request.router_id,
-            "target_ip": request.target_ip,
+            "target_ip": request.target_ip.strip(),
             "queue_name": f"reseller_{new_reseller_id}"
         }
+        print(f"Inserting mapping data: {mapping_data}")
         insert_mapping_response = client.table("reseller_router_mapping").insert(mapping_data).execute()
 
         if not insert_mapping_response.data:
             # Rollback: If mapping fails, delete the created reseller to avoid orphaned data
+            print(f"Mapping failed, rolling back reseller {new_reseller_id}")
             client.table("resellers").delete().eq("id", new_reseller_id).execute()
             raise HTTPException(status_code=500, detail="Failed to create router mapping. Rolled back reseller creation.")
 
+        print(f"Successfully created reseller {new_reseller_id}")
         return insert_reseller_response.data[0]
 
     except HTTPException as http_exc:
+        print(f"HTTP Exception in create_reseller: {http_exc.status_code} - {http_exc.detail}")
         raise http_exc # Re-raise HTTPException to preserve status code and detail
     except Exception as e:
         # Catch any other unexpected errors
+        print(f"Unexpected error in create_reseller: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 @app.get("/resellers/{reseller_id}", response_model=Reseller)
@@ -953,6 +975,22 @@ async def create_router_mapping(mapping: ResellerRouterMappingModel):
     """Create a new reseller-router mapping."""
     try:
         client = get_client()
+        
+        # Validate that reseller exists
+        reseller_check = client.table("resellers").select("id").eq("id", mapping.reseller_id).execute()
+        if not reseller_check.data:
+            raise HTTPException(status_code=404, detail=f"Reseller with ID '{mapping.reseller_id}' not found")
+        
+        # Validate that router exists
+        router_check = client.table("router_configs").select("id").eq("id", mapping.router_id).execute()
+        if not router_check.data:
+            raise HTTPException(status_code=404, detail=f"Router with ID '{mapping.router_id}' not found")
+        
+        # Check if mapping already exists
+        existing_mapping = client.table("reseller_router_mapping").select("id").eq("reseller_id", mapping.reseller_id).eq("router_id", mapping.router_id).execute()
+        if existing_mapping.data:
+            raise HTTPException(status_code=409, detail=f"Mapping already exists between reseller '{mapping.reseller_id}' and router '{mapping.router_id}'")
+        
         result = client.table("reseller_router_mapping").insert({
             "reseller_id": mapping.reseller_id,
             "router_id": mapping.router_id,
@@ -960,9 +998,11 @@ async def create_router_mapping(mapping: ResellerRouterMappingModel):
             "queue_name": mapping.queue_name or f"reseller_{mapping.reseller_id}"
         }).execute()
         return {"message": "Router mapping created successfully", "mapping": result.data[0]}
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         print(f"Error creating router mapping: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.delete("/api/router-mappings/{mapping_id}")
 async def delete_router_mapping(mapping_id: int):
