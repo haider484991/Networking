@@ -1,495 +1,92 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Button,
-  FormControl,
-  FormLabel,
-  Input,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalFooter,
-  ModalBody,
-  ModalCloseButton,
-  useDisclosure,
-  useToast,
   VStack,
   HStack,
-  IconButton,
-  AlertDialog,
-  AlertDialogOverlay,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogBody,
-  AlertDialogFooter,
-  Spinner,
-  Select,
+  Heading,
+  Text,
+  Button,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Badge,
+  useToast,
 } from '@chakra-ui/react';
-import { AddIcon, EditIcon, DeleteIcon, DownloadIcon } from '@chakra-ui/icons';
-import { apiClient, Reseller, CreateResellerRequest, UpdateResellerRequest } from '../utils/api';
 
-interface Router {
+interface Reseller {
   id: string;
   name: string;
-  host: string;
-  enabled: boolean;
+  plan_mbps: number;
+  status: string;
 }
 
-interface ResellerManagementProps {
-  resellers: Reseller[];
-  onResellerChange: () => void;
-  initialReseller?: Reseller | null;
-  onResellerManaged?: () => void;
-}
-
-export default function ResellerManagement({ 
-  resellers, 
-  onResellerChange, 
-  initialReseller,
-  onResellerManaged 
-}: ResellerManagementProps) {
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const { 
-    isOpen: isDeleteOpen, 
-    onOpen: onDeleteOpen, 
-    onClose: onDeleteClose 
-  } = useDisclosure();
-  
-  const [editingReseller, setEditingReseller] = useState<Reseller | null>(null);
-  const [deletingReseller, setDeletingReseller] = useState<Reseller | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    plan_mbps: 100,
-    threshold: 0.8,
-    phone: '',
-    router_id: '',
-    target_ip: ''
-  });
-  const [routers, setRouters] = useState<Router[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+const ResellerManagement: React.FC = () => {
+  const [resellers, setResellers] = useState<Reseller[]>([]);
   const toast = useToast();
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-  // Fetch available routers
   useEffect(() => {
-    const fetchRouters = async () => {
-      try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${API_BASE_URL}/api/routers`);
-        if (response.ok) {
-          const routerData = await response.json();
-          setRouters(routerData.routers || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch routers:', error);
-      }
-    };
-    fetchRouters();
+    fetchResellers();
   }, []);
 
-  // Handle initial reseller from dashboard
-  useEffect(() => {
-    if (initialReseller) {
-      handleOpenEdit(initialReseller);
-      onResellerManaged?.();
-    }
-  }, [initialReseller, onResellerManaged]);
-
-  const handleOpenAdd = () => {
-    setEditingReseller(null);
-    setFormData({
-      name: '',
-      plan_mbps: 100,
-      threshold: 0.8,
-      phone: '',
-      router_id: '',
-      target_ip: ''
-    });
-    onOpen();
-  };
-
-  const handleOpenEdit = (reseller: Reseller) => {
-    setEditingReseller(reseller);
-    setFormData({
-      name: reseller.name,
-      plan_mbps: reseller.plan_mbps,
-      threshold: reseller.threshold,
-      phone: reseller.phone,
-      router_id: '', // Not needed for edit
-      target_ip: ''  // Not needed for edit
-    });
-    onOpen();
-  };
-
-  const handleOpenDelete = (reseller: Reseller) => {
-    setDeletingReseller(reseller);
-    onDeleteOpen();
-  };
-
-  const handleSubmit = async () => {
-    setIsLoading(true);
+  const fetchResellers = async () => {
     try {
-      if (editingReseller) {
-        // Update existing reseller
-        await apiClient.updateReseller(editingReseller.id, formData);
-        toast({
-          title: 'Reseller updated',
-          description: `${formData.name} has been updated successfully.`,
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
-      } else {
-        // Create new reseller - validate router fields
-        if (!formData.router_id || !formData.target_ip) {
-          throw new Error('Router and Target IP are required for new resellers');
-        }
-        await apiClient.createReseller(formData as CreateResellerRequest);
-        toast({
-          title: 'Reseller created',
-          description: `${formData.name} has been created successfully.`,
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
-      }
-      
-      onResellerChange();
-      onClose();
+      const response = await fetch(`${API_BASE}/api/resellers`);
+      const data = await response.json();
+      setResellers(data.resellers || []);
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to save reseller',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setIsLoading(false);
+      toast({ title: 'Error fetching resellers', status: 'error' });
     }
   };
 
-  const handleDelete = async () => {
-    if (!deletingReseller) return;
-    
-    setIsLoading(true);
+  const handleAction = async (resellerId: string, action: string) => {
     try {
-      await apiClient.deleteReseller(deletingReseller.id);
-      toast({
-        title: 'Reseller deleted',
-        description: `${deletingReseller.name} has been deleted successfully.`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
+      await fetch(`${API_BASE}/api/resellers/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reseller_id: resellerId }),
       });
-      
-      onResellerChange();
-      onDeleteClose();
+      toast({ title: `Action ${action} successful`, status: 'success' });
+      fetchResellers();
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to delete reseller',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setIsLoading(false);
+      toast({ title: `Error performing action ${action}`, status: 'error' });
     }
   };
 
   return (
     <Box>
-      <Button
-        leftIcon={<AddIcon />}
-        colorScheme="blue"
-        onClick={handleOpenAdd}
-        mb={4}
-      >
-        Add New Reseller
-      </Button>
-
-      {/* Add/Edit Modal */}
-      <Modal isOpen={isOpen} onClose={onClose}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            {editingReseller ? 'Edit Reseller' : 'Add New Reseller'}
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl isRequired>
-                <FormLabel>Name</FormLabel>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter reseller name"
-                />
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>Plan (Mbps)</FormLabel>
-                <Input
-                  type="number"
-                  value={formData.plan_mbps}
-                  onChange={(e) => setFormData({ ...formData, plan_mbps: parseInt(e.target.value) || 0 })}
-                  placeholder="Enter bandwidth plan in Mbps"
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Threshold (0.0 - 1.0)</FormLabel>
-                <Input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="1"
-                  value={formData.threshold}
-                  onChange={(e) => setFormData({ ...formData, threshold: parseFloat(e.target.value) || 0.8 })}
-                  placeholder="Enter alert threshold (e.g., 0.8 for 80%)"
-                />
-              </FormControl>
-
-            <FormControl>
-              <FormLabel>Threshold (0.0 - 1.0)</FormLabel>
-              <Input
-                type="number"
-                step="0.1"
-                min="0"
-                max="1"
-                value={formData.threshold}
-                onChange={(e) => setFormData({ ...formData, threshold: parseFloat(e.target.value) || 0.8 })}
-                placeholder="Enter alert threshold (e.g., 0.8 for 80%)"
-              />
-            </FormControl>
-
-            <FormControl isRequired>
-              <FormLabel>Phone</FormLabel>
-              <Input
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="Enter phone number (e.g., +8801000000001)"
-              />
-            </FormControl>
-
-            {/* Router selection - only show for new resellers */}
-            {!editingReseller && (
-              <>
-                <FormControl isRequired>
-                  <FormLabel>Router</FormLabel>
-                  <Select
-                    placeholder="Select a router"
-                    value={formData.router_id}
-                    onChange={(e) => setFormData({ ...formData, router_id: e.target.value })}
-                  >
-                    {routers.filter(router => router.enabled).map((router) => (
-                      <option key={router.id} value={router.id}>
-                        {router.name} ({router.host})
-                      </option>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl isRequired>
-                  <FormLabel>Target IP Address</FormLabel>
-                  <Input
-                    placeholder="e.g., 192.168.1.100"
-                    value={formData.target_ip}
-                    onChange={(e) => setFormData({ ...formData, target_ip: e.target.value })}
-                  />
-                </FormControl>
-              </>
-            )}
-          </VStack>
-        </ModalBody>
-
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button 
-            colorScheme="blue" 
-            onClick={handleSubmit}
-            isLoading={isLoading}
-            isDisabled={
-              isLoading ||
-              !formData.name.trim() ||
-              !formData.plan_mbps ||
-              (!editingReseller && (!formData.router_id || !formData.target_ip))
-            }
-          >
-            {editingReseller ? 'Save' : 'Create'}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-
-    {/* Delete Confirmation Dialog */}
-    <AlertDialog
-      isOpen={isDeleteOpen}
-      leastDestructiveRef={undefined}
-      onClose={onDeleteClose}
-    >
-      <AlertDialogOverlay>
-        <AlertDialogContent>
-          <AlertDialogHeader fontSize="lg" fontWeight="bold">
-            Delete Reseller
-          </AlertDialogHeader>
-
-          <AlertDialogBody>
-            Are you sure you want to delete {deletingReseller?.name}? This action cannot be undone.
-          </AlertDialogBody>
-
-          <AlertDialogFooter>
-            <Button onClick={onDeleteClose}>
-              Cancel
-            </Button>
-            <Button 
-              colorScheme="red" 
-              onClick={handleDelete}
-              ml={3}
-              isLoading={isLoading}
-            >
-              Delete
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialogOverlay>
-    </AlertDialog>
-  </Box>
+      <Heading size="lg" mb={4}>Reseller Management</Heading>
+      <Table>
+        <Thead>
+          <Tr>
+            <Th>Name</Th>
+            <Th>Plan (Mbps)</Th>
+            <Th>Status</Th>
+            <Th>Actions</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {resellers.map(reseller => (
+            <Tr key={reseller.id}>
+              <Td>{reseller.name}</Td>
+              <Td>{reseller.plan_mbps}</Td>
+              <Td><Badge colorScheme={reseller.status === 'active' ? 'green' : 'red'}>{reseller.status}</Badge></Td>
+              <Td>
+                <HStack>
+                  <Button size="sm" colorScheme="yellow" onClick={() => handleAction(reseller.id, 'suspend')}>Suspend</Button>
+                  <Button size="sm" colorScheme="green" onClick={() => handleAction(reseller.id, 'unsuspend')}>Unsuspend</Button>
+                  <Button size="sm" colorScheme="red" onClick={() => handleAction(reseller.id, 'reboot')}>Reboot</Button>
+                </HStack>
+              </Td>
+            </Tr>
+          ))}
+        </Tbody>
+      </Table>
+    </Box>
   );
-}
+};
 
-// Export action buttons component to be used in the table
-export function ResellerActionButtons({ 
-  reseller, 
-  onEdit, 
-  onDelete 
-}: { 
-  reseller: Reseller;
-  onEdit: (reseller: Reseller) => void;
-  onDelete: (reseller: Reseller) => void;
-}) {
-  const toast = useToast();
-  const [isDownloading, setIsDownloading] = useState(false);
-
-  const handleDownloadReport = async () => {
-    if (isDownloading) return; // Prevent multiple clicks
-    
-    setIsDownloading(true);
-    try {
-      // Use the configured API base URL instead of hardcoded localhost
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${API_BASE_URL}/resellers/${reseller.id}/report`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/pdf',
-        },
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${reseller.name}_report_${new Date().toISOString().slice(0, 7)}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        toast({
-          title: 'Report downloaded',
-          description: `PDF report for ${reseller.name} has been downloaded.`,
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
-      } else {
-        const errorMessage = response.status === 404 
-          ? 'Report not found. Make sure the API server is running.'
-          : `Server error: ${response.status} ${response.statusText}`;
-        throw new Error(errorMessage);
-      }
-    } catch (error) {
-      console.error('Error downloading report:', error);
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : 'Failed to download PDF report. Please try again.';
-      
-      toast({
-        title: 'Download failed',
-        description: errorMessage,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  const handleEditClick = () => {
-    try {
-      onEdit(reseller);
-    } catch (error) {
-      console.error('Error handling edit action:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to open edit dialog. Please try again.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
-
-  const handleDeleteClick = () => {
-    try {
-      onDelete(reseller);
-    } catch (error) {
-      console.error('Error handling delete action:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to open delete dialog. Please try again.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
-
-  return (
-    <HStack spacing={2}>
-      <IconButton
-        aria-label="Download PDF report"
-        icon={isDownloading ? <Spinner size="sm" /> : <DownloadIcon />}
-        size="sm"
-        colorScheme="green"
-        variant="ghost"
-        onClick={handleDownloadReport}
-        isLoading={isDownloading}
-        isDisabled={isDownloading}
-      />
-      <IconButton
-        aria-label="Edit reseller"
-        icon={<EditIcon />}
-        size="sm"
-        colorScheme="blue"
-        variant="ghost"
-        onClick={handleEditClick}
-        _hover={{ bg: 'blue.50' }}
-      />
-      <IconButton
-        aria-label="Delete reseller"
-        icon={<DeleteIcon />}
-        size="sm"
-        colorScheme="red"
-        variant="ghost"
-        onClick={handleDeleteClick}
-        _hover={{ bg: 'red.50' }}
-      />
-    </HStack>
-  );
-} 
+export default ResellerManagement;

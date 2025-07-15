@@ -1071,8 +1071,338 @@ async def discover_network_devices():
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==============================================================================
-# MAIN
+# ROUTER BACKUP ENDPOINTS
 # ==============================================================================
+
+@app.get("/api/routers/{router_id}/backups")
+async def list_router_backups(router_id: str):
+    """List all backups on a specific router."""
+    try:
+        router_manager = RouterManager()
+        client = get_client()
+        result = client.table("router_configs").select("*").eq("id", router_id).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Router not found")
+        
+        router_config = result.data[0]
+        
+        # Create temporary router client
+        router_client = router_manager.get_router_client(router_config)
+        
+        if not router_client.connect():
+            raise HTTPException(status_code=503, detail="Failed to connect to router")
+        
+        backups = router_client.list_backups()
+        router_client.disconnect()
+        
+        return {"backups": backups}
+    except Exception as e:
+        print(f"Error listing router backups: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/routers/{router_id}/backups")
+async def create_router_backup(router_id: str):
+    """Create a new backup on a specific router."""
+    try:
+        router_manager = RouterManager()
+        client = get_client()
+        result = client.table("router_configs").select("*").eq("id", router_id).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Router not found")
+        
+        router_config = result.data[0]
+        
+        # Create temporary router client
+        router_client = router_manager.get_router_client(router_config)
+        
+        if not router_client.connect():
+            raise HTTPException(status_code=503, detail="Failed to connect to router")
+        
+        backup_name = router_client.create_backup()
+        router_client.disconnect()
+        
+        if backup_name:
+            return {"message": "Backup created successfully", "backup_name": backup_name}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create backup")
+    except Exception as e:
+        print(f"Error creating router backup: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/routers/{router_id}/backups/{backup_name}")
+async def delete_router_backup(router_id: str, backup_name: str):
+    """Delete a backup from a specific router."""
+    try:
+        router_manager = RouterManager()
+        client = get_client()
+        result = client.table("router_configs").select("*").eq("id", router_id).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Router not found")
+        
+        router_config = result.data[0]
+        
+        # Create temporary router client
+        router_client = router_manager.get_router_client(router_config)
+        
+        if not router_client.connect():
+            raise HTTPException(status_code=503, detail="Failed to connect to router")
+        
+        success = router_client.remove_backup(backup_name)
+        router_client.disconnect()
+        
+        if success:
+            return {"message": "Backup deleted successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete backup")
+    except Exception as e:
+        print(f"Error deleting router backup: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==============================================================================
+# BULK ACTION ENDPOINTS
+# ==============================================================================
+
+class BulkActionRequest(BaseModel):
+    router_ids: List[str]
+    action: str
+    payload: Optional[Dict[str, Any]] = None
+
+@app.post("/api/routers/bulk-action")
+async def bulk_router_action(request: BulkActionRequest):
+    """Perform a bulk action on multiple routers."""
+    router_manager = RouterManager()
+    client = get_client()
+    
+    results = []
+    
+    for router_id in request.router_ids:
+        result = {"router_id": router_id, "success": False, "message": ""}
+        try:
+            res = client.table("router_configs").select("*").eq("id", router_id).execute()
+            if not res.data:
+                result["message"] = "Router not found"
+                results.append(result)
+                continue
+            
+            router_config = res.data[0]
+            router_client = router_manager.get_router_client(router_config)
+            
+            if not router_client.connect():
+                result["message"] = "Failed to connect"
+                results.append(result)
+                continue
+
+            if request.action == "reboot":
+                success = router_client.reboot_router()
+                if success:
+                    result["success"] = True
+                    result["message"] = "Reboot command sent successfully"
+                else:
+                    result["message"] = "Failed to send reboot command"
+            elif request.action == "add_firewall_rule":
+                if not request.payload:
+                    result["message"] = "Payload is required for adding firewall rule"
+                else:
+                    success = router_client.add_firewall_rule(request.payload)
+                    if success:
+                        result["success"] = True
+                        result["message"] = "Firewall rule added successfully"
+                    else:
+                        result["message"] = "Failed to add firewall rule"
+            elif request.action == "update_qos_rule":
+                if not request.payload or 'name' not in request.payload or 'limits' not in request.payload:
+                    result["message"] = "Payload with queue name and limits is required for updating QoS rule"
+                else:
+                    success = router_client.update_qos_rule(request.payload['name'], request.payload['limits'])
+                    if success:
+                        result["success"] = True
+                        result["message"] = "QoS rule updated successfully"
+                    else:
+                        result["message"] = "Failed to update QoS rule"
+            else:
+                result["message"] = f"Unknown action: {request.action}"
+
+            router_client.disconnect()
+        except Exception as e:
+            result["message"] = str(e)
+        
+        results.append(result)
+        
+    return {"results": results}
+
+@app.get("/api/routers/{router_id}/os-version")
+async def get_router_os_version(router_id: str):
+    """Get the RouterOS version for a specific router."""
+    router_manager = RouterManager()
+    client = get_client()
+    
+    try:
+        res = client.table("router_configs").select("*").eq("id", router_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Router not found")
+        
+        router_config = res.data[0]
+        router_client = router_manager.get_router_client(router_config)
+        
+        if not router_client.connect():
+            raise HTTPException(status_code=503, detail="Failed to connect to router")
+
+        os_version = router_client.get_router_os_version()
+        router_client.disconnect()
+
+        if os_version:
+            # Update the database with the new version
+            client.table("router_configs").update({"os_version": os_version}).eq("id", router_id).execute()
+            return {"os_version": os_version}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to get RouterOS version")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==============================================================================
+# IPAM ENDPOINTS
+# ==============================================================================
+
+class SubnetModel(BaseModel):
+    subnet: str
+    description: str
+
+class AllocationModel(BaseModel):
+    subnet_id: str
+    reseller_id: str
+    ip_address: str
+
+@app.get("/api/ipam/subnets")
+async def get_subnets():
+    client = get_client()
+    try:
+        res = client.table("ipam_subnets").select("*").execute()
+        return {"subnets": res.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ipam/subnets")
+async def create_subnet(subnet: SubnetModel):
+    client = get_client()
+    try:
+        res = client.table("ipam_subnets").insert(subnet.dict()).execute()
+        return {"subnet": res.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ipam/allocations")
+async def get_allocations():
+    client = get_client()
+    try:
+        res = client.table("ipam_allocations").select("*").execute()
+        return {"allocations": res.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ipam/allocations")
+async def create_allocation(allocation: AllocationModel):
+    client = get_client()
+    try:
+        res = client.table("ipam_allocations").insert(allocation.dict()).execute()
+        return {"allocation": res.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==============================================================================
+# AUTOMATED SERVICE CONTROL ENDPOINTS
+# ==============================================================================
+
+class ResellerActionRequest(BaseModel):
+    reseller_id: str
+
+@app.post("/api/resellers/suspend")
+async def suspend_reseller(request: ResellerActionRequest):
+    """Suspend a reseller's service."""
+    router_manager = RouterManager()
+    client = get_client()
+    try:
+        # Get router mapping
+        mapping_res = client.table("reseller_router_mapping").select("*").eq("reseller_id", request.reseller_id).execute()
+        if not mapping_res.data:
+            raise HTTPException(status_code=404, detail="Reseller mapping not found")
+        
+        for mapping in mapping_res.data:
+            router_config_res = client.table("router_configs").select("*").eq("id", mapping['router_id']).execute()
+            if not router_config_res.data:
+                continue
+            
+            router_config = router_config_res.data[0]
+            router_client = router_manager.get_router_client(router_config)
+            
+            if router_client.connect():
+                router_client.set_queue_disabled(f"reseller_{request.reseller_id}", True)
+                router_client.disconnect()
+
+        # Update reseller status
+        client.table("resellers").update({"status": "suspended"}).eq("id", request.reseller_id).execute()
+        
+        return {"message": "Reseller suspended successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/resellers/unsuspend")
+async def unsuspend_reseller(request: ResellerActionRequest):
+    """Unsuspend a reseller's service."""
+    router_manager = RouterManager()
+    client = get_client()
+    try:
+        # Get router mapping
+        mapping_res = client.table("reseller_router_mapping").select("*").eq("reseller_id", request.reseller_id).execute()
+        if not mapping_res.data:
+            raise HTTPException(status_code=404, detail="Reseller mapping not found")
+        
+        for mapping in mapping_res.data:
+            router_config_res = client.table("router_configs").select("*").eq("id", mapping['router_id']).execute()
+            if not router_config_res.data:
+                continue
+            
+            router_config = router_config_res.data[0]
+            router_client = router_manager.get_router_client(router_config)
+            
+            if router_client.connect():
+                router_client.set_queue_disabled(f"reseller_{request.reseller_id}", False)
+                router_client.disconnect()
+
+        # Update reseller status
+        client.table("resellers").update({"status": "active"}).eq("id", request.reseller_id).execute()
+        
+        return {"message": "Reseller unsuspended successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/resellers/reboot")
+async def reboot_reseller_router(request: ResellerActionRequest):
+    """Reboot a reseller's router."""
+    router_manager = RouterManager()
+    client = get_client()
+    try:
+        # Get router mapping
+        mapping_res = client.table("reseller_router_mapping").select("*").eq("reseller_id", request.reseller_id).execute()
+        if not mapping_res.data:
+            raise HTTPException(status_code=404, detail="Reseller mapping not found")
+        
+        for mapping in mapping_res.data:
+            router_config_res = client.table("router_configs").select("*").eq("id", mapping['router_id']).execute()
+            if not router_config_res.data:
+                continue
+            
+            router_config = router_config_res.data[0]
+            router_client = router_manager.get_router_client(router_config)
+            
+            if router_client.connect():
+                router_client.reboot_router()
+                router_client.disconnect()
+        
+        return {"message": "Reboot command sent successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

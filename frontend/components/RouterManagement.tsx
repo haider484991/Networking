@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   VStack,
@@ -36,10 +36,17 @@ import {
   GridItem,
   useColorModeValue,
   Container,
-  Divider
+  Divider,
+  Collapse,
+  Tag,
+  TagLabel,
+  TagLeftIcon,
+  Checkbox,
+  Textarea,
 } from '@chakra-ui/react';
-import { AddIcon, EditIcon, DeleteIcon, SettingsIcon } from '@chakra-ui/icons';
+import { AddIcon, EditIcon, DeleteIcon, SettingsIcon, TimeIcon, DownloadIcon, RepeatIcon } from '@chakra-ui/icons';
 
+// Interfaces
 interface Router {
   id: string;
   name: string;
@@ -52,6 +59,7 @@ interface Router {
   enabled: boolean;
   created_at: string;
   updated_at: string;
+  os_version?: string;
 }
 
 interface RouterFormData {
@@ -66,11 +74,18 @@ interface RouterFormData {
   enabled: boolean;
 }
 
+interface BackupFile {
+  name: string;
+  size: string;
+  'creation-time': string;
+}
+
 interface RouterManagementProps {
   onAlert: (message: string, type: 'success' | 'error') => void;
 }
 
 const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
+  // State
   const [routers, setRouters] = useState<Router[]>([]);
   const [loading, setLoading] = useState(true);
   const [testingConnection, setTestingConnection] = useState<string | null>(null);
@@ -87,17 +102,28 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
     device_type: 'mikrotik',
     enabled: true
   });
+  const [expandedRouter, setExpandedRouter] = useState<string | null>(null);
+  const [backups, setBackups] = useState<BackupFile[]>([]);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [selectedRouters, setSelectedRouters] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState('');
+  const [bulkPayload, setBulkPayload] = useState('');
+  const { isOpen: isBulkOpen, onOpen: onBulkOpen, onClose: onBulkClose } = useDisclosure();
+  const [loadingOsVersion, setLoadingOsVersion] = useState<string | null>(null);
 
+  // Hooks
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const toast = useToast();
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+  // Effects
   useEffect(() => {
     fetchRouters();
   }, []);
 
+  // Functions
   const fetchRouters = async () => {
     try {
       const response = await fetch(`${API_BASE}/api/routers`);
@@ -108,6 +134,55 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
       onAlert('Failed to fetch routers', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBackups = useCallback(async (routerId: string) => {
+    setLoadingBackups(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/routers/${routerId}/backups`);
+      if (!response.ok) throw new Error('Failed to fetch backups');
+      const data = await response.json();
+      setBackups(data.backups || []);
+    } catch (error) {
+      console.error('Error fetching backups:', error);
+      toast({ title: 'Error fetching backups', status: 'error' });
+    } finally {
+      setLoadingBackups(false);
+    }
+  }, [API_BASE, toast]);
+
+  const handleToggleRouterDetails = (routerId: string) => {
+    if (expandedRouter === routerId) {
+      setExpandedRouter(null);
+    } else {
+      setExpandedRouter(routerId);
+      fetchBackups(routerId);
+    }
+  };
+
+  const handleCreateBackup = async (routerId: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/routers/${routerId}/backups`, { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to create backup');
+      toast({ title: 'Backup created successfully', status: 'success' });
+      fetchBackups(routerId);
+    } catch (error) {
+      console.error('Error creating backup:', error);
+      toast({ title: 'Error creating backup', status: 'error' });
+    }
+  };
+
+  const handleDeleteBackup = async (routerId: string, backupName: string) => {
+    if (!confirm(`Are you sure you want to delete backup ${backupName}?`)) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/routers/${routerId}/backups/${backupName}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete backup');
+      toast({ title: 'Backup deleted successfully', status: 'success' });
+      fetchBackups(routerId);
+    } catch (error) {
+      console.error('Error deleting backup:', error);
+      toast({ title: 'Error deleting backup', status: 'error' });
     }
   };
 
@@ -235,6 +310,43 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
     }
   };
 
+  const handleBulkAction = async () => {
+    try {
+      const payload = bulkPayload ? JSON.parse(bulkPayload) : null;
+      const response = await fetch(`${API_BASE}/api/routers/bulk-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ router_ids: selectedRouters, action: bulkAction, payload })
+      });
+      const result = await response.json();
+      // TODO: Display detailed results
+      toast({ title: 'Bulk action completed', status: 'info' });
+      onBulkClose();
+    } catch (error) {
+      console.error('Error performing bulk action:', error);
+      toast({ title: 'Error performing bulk action', status: 'error' });
+    }
+  };
+
+  const handleFetchOsVersion = async (routerId: string) => {
+    setLoadingOsVersion(routerId);
+    try {
+      const response = await fetch(`${API_BASE}/api/routers/${routerId}/os-version`);
+      const result = await response.json();
+      if (response.ok) {
+        setRouters(prev => prev.map(r => r.id === routerId ? { ...r, os_version: result.os_version } : r));
+        toast({ title: 'OS version updated', status: 'success' });
+      } else {
+        throw new Error(result.detail || 'Failed to fetch OS version');
+      }
+    } catch (error) {
+      console.error('Error fetching OS version:', error);
+      toast({ title: 'Error fetching OS version', status: 'error' });
+    } finally {
+      setLoadingOsVersion(null);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       id: '',
@@ -271,6 +383,12 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
     onOpen();
   };
 
+  const handleSelectRouter = (routerId: string) => {
+    setSelectedRouters(prev => 
+      prev.includes(routerId) ? prev.filter(id => id !== routerId) : [...prev, routerId]
+    );
+  };
+
   if (loading) {
     return (
       <Center h="200px">
@@ -291,14 +409,17 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
             <Heading size="lg" color="gray.900">Router Management</Heading>
             <Text color="gray.600">Configure and manage MikroTik router connections</Text>
           </VStack>
-          <Button
-            leftIcon={<AddIcon />}
-            colorScheme="blue"
-            onClick={openAddModal}
-            size="md"
-          >
-            Add Router
-          </Button>
+          <HStack>
+            <Button onClick={onBulkOpen} disabled={selectedRouters.length === 0}>Bulk Actions</Button>
+            <Button
+              leftIcon={<AddIcon />}
+              colorScheme="blue"
+              onClick={openAddModal}
+              size="md"
+            >
+              Add Router
+            </Button>
+          </HStack>
         </HStack>
 
         {/* Routers Table */}
@@ -318,91 +439,77 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
               <Table variant="simple">
                 <Thead bg={useColorModeValue('gray.50', 'gray.700')}>
                   <Tr>
-                    <Th color="gray.600" fontSize="xs" fontWeight="semibold" textTransform="uppercase" letterSpacing="wider">
-                      Router Details
-                    </Th>
-                    <Th color="gray.600" fontSize="xs" fontWeight="semibold" textTransform="uppercase" letterSpacing="wider">
-                      Connection
-                    </Th>
-                    <Th color="gray.600" fontSize="xs" fontWeight="semibold" textTransform="uppercase" letterSpacing="wider">
-                      Status
-                    </Th>
-                    <Th color="gray.600" fontSize="xs" fontWeight="semibold" textTransform="uppercase" letterSpacing="wider">
-                      Actions
-                    </Th>
+                    <Th><Checkbox onChange={(e) => setSelectedRouters(e.target.checked ? routers.map(r => r.id) : [])} /></Th>
+                    <Th>Details</Th>
+                    <Th>Connection</Th>
+                    <Th>OS Version</Th>
+                    <Th>Status</Th>
+                    <Th>Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
                   {routers.map((router) => (
-                    <Tr key={router.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
-                      <Td py={4}>
-                        <VStack align="flex-start" spacing={1}>
-                          <Text fontWeight="semibold" color="gray.900">{router.name}</Text>
-                          <Text fontSize="sm" color="gray.500">ID: {router.id}</Text>
-                          <Badge colorScheme="blue" variant="subtle" size="sm">
-                            {router.device_type}
-                          </Badge>
-                        </VStack>
-                      </Td>
-                      <Td py={4}>
-                        <VStack align="flex-start" spacing={1}>
-                          <Text fontWeight="medium" color="gray.900">
-                            {router.host}:{router.port}
-                          </Text>
-                          <HStack spacing={2}>
-                            <Badge colorScheme={router.use_ssl ? 'green' : 'orange'} variant="subtle">
-                              {router.use_ssl ? '🔒 SSL' : '🔓 No SSL'}
-                            </Badge>
-                            <Text fontSize="sm" color="gray.500">
-                              User: {router.username}
-                            </Text>
+                    <React.Fragment key={router.id}>
+                      <Tr onClick={() => handleToggleRouterDetails(router.id)} cursor="pointer">
+                        <Td><Checkbox isChecked={selectedRouters.includes(router.id)} onChange={() => handleSelectRouter(router.id)} onClick={(e) => e.stopPropagation()} /></Td>
+                        <Td>
+                          <VStack align="flex-start">
+                            <Text fontWeight="bold">{router.name}</Text>
+                            <Text fontSize="sm" color="gray.500">{router.id}</Text>
+                          </VStack>
+                        </Td>
+                        <Td>{router.host}:{router.port}</Td>
+                        <Td>
+                          {router.os_version || 'N/A'}
+                          <IconButton 
+                            aria-label="Refresh OS Version" 
+                            icon={<RepeatIcon />} 
+                            size="xs" 
+                            ml={2} 
+                            onClick={(e) => { e.stopPropagation(); handleFetchOsVersion(router.id); }} 
+                            isLoading={loadingOsVersion === router.id} 
+                          />
+                        </Td>
+                        <Td><Badge colorScheme={router.enabled ? 'green' : 'red'}>{router.enabled ? 'Enabled' : 'Disabled'}</Badge></Td>
+                        <Td>
+                          <HStack>
+                            <IconButton aria-label="Test Connection" icon={<SettingsIcon />} onClick={(e) => { e.stopPropagation(); testConnection(router.id); }} isLoading={testingConnection === router.id} />
+                            <IconButton aria-label="Edit" icon={<EditIcon />} onClick={(e) => { e.stopPropagation(); openEditModal(router); }} />
+                            <IconButton aria-label="Delete" icon={<DeleteIcon />} onClick={(e) => { e.stopPropagation(); handleDelete(router.id); }} />
                           </HStack>
-                        </VStack>
-                      </Td>
-                      <Td py={4}>
-                        <Badge
-                          colorScheme={router.enabled ? 'green' : 'red'}
-                          variant="solid"
-                          borderRadius="full"
-                          px={3}
-                          py={1}
-                        >
-                          {router.enabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                      </Td>
-                      <Td py={4}>
-                        <HStack spacing={2}>
-                          <IconButton
-                            aria-label="Test Connection"
-                            icon={testingConnection === router.id ? <Spinner size="sm" /> : <SettingsIcon />}
-                            colorScheme="blue"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => testConnection(router.id)}
-                            isDisabled={testingConnection === router.id}
-                            title="Test Connection"
-                          />
-                          <IconButton
-                            aria-label="Edit Router"
-                            icon={<EditIcon />}
-                            colorScheme="yellow"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditModal(router)}
-                            title="Edit Router"
-                          />
-                          <IconButton
-                            aria-label="Delete Router"
-                            icon={<DeleteIcon />}
-                            colorScheme="red"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(router.id)}
-                            title="Delete Router"
-                          />
-                        </HStack>
-                      </Td>
-                    </Tr>
+                        </Td>
+                      </Tr>
+                      <Tr>
+                        <Td colSpan={6} p={0} border="none">
+                          <Collapse in={expandedRouter === router.id} animateOpacity>
+                            <Box p={4} bg={useColorModeValue('gray.50', 'gray.700')}>
+                              <VStack align="stretch" spacing={4}>
+                                <Heading size="sm">Backups</Heading>
+                                {loadingBackups ? (
+                                  <Center><Spinner /></Center>
+                                ) : (
+                                  <VStack align="stretch">
+                                    {backups.map(backup => (
+                                      <HStack key={backup.name} justify="space-between">
+                                        <VStack align="flex-start">
+                                          <Text>{backup.name}</Text>
+                                          <Text fontSize="xs" color="gray.500">Size: {backup.size} | Created: {backup['creation-time']}</Text>
+                                        </VStack>
+                                        <HStack>
+                                          <IconButton aria-label="Download" icon={<DownloadIcon />} size="sm" />
+                                          <IconButton aria-label="Delete" icon={<DeleteIcon />} size="sm" onClick={() => handleDeleteBackup(router.id, backup.name)} />
+                                        </HStack>
+                                      </HStack>
+                                    ))}
+                                  </VStack>
+                                )}
+                                <Button size="sm" onClick={() => handleCreateBackup(router.id)}>Create Backup</Button>
+                              </VStack>
+                            </Box>
+                          </Collapse>
+                        </Td>
+                      </Tr>
+                    </React.Fragment>
                   ))}
                 </Tbody>
               </Table>
@@ -551,6 +658,37 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
                 </Button>
               </ModalFooter>
             </form>
+          </ModalContent>
+        </Modal>
+
+        {/* Bulk Action Modal */}
+        <Modal isOpen={isBulkOpen} onClose={onBulkClose}>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Bulk Action</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <VStack spacing={4}>
+                <FormControl>
+                  <FormLabel>Action</FormLabel>
+                  <Select placeholder="Select action" onChange={(e) => setBulkAction(e.target.value)}>
+                    <option value="reboot">Reboot</option>
+                    <option value="add_firewall_rule">Add Firewall Rule</option>
+                    <option value="update_qos_rule">Update QoS Rule</option>
+                  </Select>
+                </FormControl>
+                {(bulkAction === 'add_firewall_rule' || bulkAction === 'update_qos_rule') && (
+                  <FormControl>
+                    <FormLabel>Payload (JSON)</FormLabel>
+                    <Textarea value={bulkPayload} onChange={(e) => setBulkPayload(e.target.value)} />
+                  </FormControl>
+                )}
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" mr={3} onClick={onBulkClose}>Cancel</Button>
+              <Button colorScheme="blue" onClick={handleBulkAction}>Run Action</Button>
+            </ModalFooter>
           </ModalContent>
         </Modal>
       </VStack>

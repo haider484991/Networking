@@ -15,7 +15,7 @@ collection:
   method: snmp  # options: snmp | mock
   snmp:
     host: 192.0.2.1          # Cisco NCS 5501 IP
-    community: public
+    community: ${SNMP_COMMUNITY:-public}
     version: 2c
 
 alert:
@@ -65,7 +65,7 @@ router_api:
       type: "mikrotik"
       host: "103.106.119.201"
       port: 8728
-      use_ssl: false
+      use_ssl: true
       # Credentials loaded from environment variables
 
 # ---------------------------

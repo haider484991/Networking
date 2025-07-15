@@ -248,6 +248,134 @@ class MikroTikRouterClient:
             logger.error("Failed to get VLAN interfaces: %s", exc)
             return []
 
+    def create_backup(self, backup_name: Optional[str] = None) -> Optional[str]:
+        """Create a configuration backup on the router."""
+        if not backup_name:
+            backup_name = f"backup-{self.host}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.backup"
+        
+        try:
+            # The 'name' parameter for backup save should not have the .backup extension
+            name_for_command = backup_name.replace('.backup', '')
+            self.execute_command('system/backup/save', {'name': name_for_command})
+            logger.info("Successfully created backup '%s' on router %s", backup_name, self.host)
+            return backup_name
+        except Exception as exc:
+            logger.error("Failed to create backup on router %s: %s", self.host, exc)
+            return None
+
+    def list_backups(self) -> List[Dict]:
+        """List all .backup files on the router."""
+        try:
+            files = self.execute_command('file/print')
+            backup_files = [f for f in files if f.get('name', '').endswith('.backup')]
+            return backup_files
+        except Exception as exc:
+            logger.error("Failed to list backups on router %s: %s", self.host, exc)
+            return []
+
+    def remove_backup(self, backup_name: str) -> bool:
+        """Remove a backup file from the router."""
+        try:
+            # Find the file first to get its ID
+            files = self.execute_command('file/print', {'.proplist': '.id,name'})
+            file_id = None
+            for f in files:
+                if f.get('name') == backup_name:
+                    file_id = f.get('.id')
+                    break
+            
+            if not file_id:
+                logger.error("Backup file '%s' not found on router %s", backup_name, self.host)
+                return False
+
+            self.execute_command('file/remove', {'.id': file_id})
+            logger.info("Successfully removed backup '%s' from router %s", backup_name, self.host)
+            return True
+        except Exception as exc:
+            logger.error("Failed to remove backup '%s' on router %s: %s", self.host, exc)
+            return False
+
+    def reboot_router(self) -> bool:
+        """Reboot the router."""
+        try:
+            self.execute_command('system/reboot', {})
+            logger.info("Successfully rebooted router %s", self.host)
+            return True
+        except Exception as exc:
+            logger.error("Failed to reboot router %s: %s", self.host, exc)
+            return False
+
+    def add_firewall_rule(self, rule: Dict[str, Any]) -> bool:
+        """Add a new firewall rule."""
+        try:
+            self.execute_command('ip/firewall/filter/add', rule)
+            logger.info("Successfully added firewall rule to router %s", self.host)
+            return True
+        except Exception as exc:
+            logger.error("Failed to add firewall rule to router %s: %s", self.host, exc)
+            return False
+
+    def update_qos_rule(self, queue_name: str, new_limits: Dict[str, Any]) -> bool:
+        """Update a QoS rule (simple queue)."""
+        try:
+            existing_queue = self.find_queue_by_name(queue_name)
+            if not existing_queue:
+                logger.error("Queue '%s' not found, cannot update", queue_name)
+                return False
+
+            queue_id = existing_queue.get('.id')
+            if not queue_id:
+                logger.error("Queue ID not found for %s", queue_name)
+                return False
+
+            arguments = {
+                '.id': queue_id,
+                **new_limits
+            }
+
+            self.execute_command('queue/simple/set', arguments)
+            logger.info("Successfully updated QoS rule '%s' on router %s", queue_name, self.host)
+            return True
+        except Exception as exc:
+            logger.error("Failed to update QoS rule '%s' on router %s: %s", queue_name, self.host, exc)
+            return False
+
+    def get_router_os_version(self) -> Optional[str]:
+        """Get the RouterOS version."""
+        try:
+            routerboard_info = self.execute_command('system/routerboard/print')
+            if routerboard_info:
+                return routerboard_info[0].get('current-firmware')
+            return None
+        except Exception as exc:
+            logger.error("Failed to get RouterOS version from router %s: %s", self.host, exc)
+            return None
+
+    def set_queue_disabled(self, queue_name: str, disabled: bool) -> bool:
+        """Disable or enable a simple queue."""
+        try:
+            existing_queue = self.find_queue_by_name(queue_name)
+            if not existing_queue:
+                logger.error("Queue '%s' not found, cannot update", queue_name)
+                return False
+
+            queue_id = existing_queue.get('.id')
+            if not queue_id:
+                logger.error("Queue ID not found for %s", queue_name)
+                return False
+
+            arguments = {
+                '.id': queue_id,
+                'disabled': 'yes' if disabled else 'no'
+            }
+
+            self.execute_command('queue/simple/set', arguments)
+            logger.info("Successfully %s queue '%s' on router %s", "disabled" if disabled else "enabled", queue_name, self.host)
+            return True
+        except Exception as exc:
+            logger.error("Failed to %s queue '%s' on router %s: %s", "disable" if disabled else "enable", queue_name, self.host, exc)
+            return False
+
     def _log_router_action(self, action: str, reseller_id: str, details: str) -> None:
         """Log router actions to the database."""
         try:
@@ -294,6 +422,16 @@ class RouterManager:
     def get_router(self, router_id: str) -> Optional[MikroTikRouterClient]:
         """Get a router client by ID."""
         return self.routers.get(router_id)
+
+    def get_router_client(self, router_config: Dict) -> MikroTikRouterClient:
+        """Get a router client from a config dict."""
+        return MikroTikRouterClient(
+            host=router_config['host'],
+            username=router_config['username'],
+            password=router_config['password'],
+            port=router_config.get('port', 8728),
+            use_ssl=router_config.get('use_ssl', False)
+        )
 
     def update_reseller_bandwidth(self, reseller_id: str, new_plan_mbps: int) -> bool:
         """Update bandwidth limits for a reseller across all configured routers."""
