@@ -189,7 +189,35 @@ export default function NTTNManagement() {
   };
 
   if (loading) {
-    return null; // Make loading invisible
+    return (
+      <Box>
+        <VStack spacing={6} align="stretch">
+          {/* Header Skeleton */}
+          <HStack justify="space-between" align="center">
+            <Box>
+              <Heading size="lg" mb={2}>NTTN Link Management</Heading>
+              <Text color="gray.600">Monitor and manage NTTN link capacity</Text>
+            </Box>
+            <Button isDisabled colorScheme="blue" leftIcon={<AddIcon />}>
+              Add NTTN Link
+            </Button>
+          </HStack>
+
+          {/* Loading State */}
+          <Card bg={cardBg} border="1px solid" borderColor={borderColor}>
+            <CardBody>
+              <Center py={12}>
+                <VStack spacing={4}>
+                  <Spinner size="xl" color="purple.500" thickness="4px" />
+                  <Text color="gray.500" fontSize="lg">Loading NTTN management data...</Text>
+                  <Text color="gray.400" fontSize="sm">Fetching link status and alerts</Text>
+                </VStack>
+              </Center>
+            </CardBody>
+          </Card>
+        </VStack>
+      </Box>
+    );
   }
 
   return (

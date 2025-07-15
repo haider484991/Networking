@@ -212,18 +212,6 @@ export default function Dashboard() {
     onDeleteOpen();
   };
 
-  // Remove the loading check - page will load directly
-  // if (dataLoading) {
-  //   return (
-  //     <LoadingOverlay 
-  //       isLoading={true} 
-  //       type="page" 
-  //       message="Loading ISP Dashboard..." 
-  //       showProgress={true}
-  //     />
-  //   );
-  // }
-
   return (
     <Box minH="100vh" bg="gray.50">
       {/* Header */}
@@ -287,7 +275,7 @@ export default function Dashboard() {
               <Stat>
                 <StatLabel color="gray.500" fontSize="sm">Total Bandwidth Today</StatLabel>
                 <StatNumber color="blue.600" fontSize="3xl" fontWeight="bold">
-                  {totalBandwidth.toFixed(0)} Mbps
+                  {dataLoading ? <Spinner size="lg" /> : `${totalBandwidth.toFixed(0)} Mbps`}
                 </StatNumber>
               </Stat>
             </CardBody>
@@ -298,7 +286,7 @@ export default function Dashboard() {
               <Stat>
                 <StatLabel color="gray.500" fontSize="sm">Active Resellers</StatLabel>
                 <StatNumber color="blue.600" fontSize="3xl" fontWeight="bold">
-                  {activeVLANs}
+                  {dataLoading ? <Spinner size="lg" /> : activeVLANs}
                 </StatNumber>
               </Stat>
             </CardBody>
@@ -309,7 +297,7 @@ export default function Dashboard() {
               <Stat>
                 <StatLabel color="gray.500" fontSize="sm">Alerts (24h)</StatLabel>
                 <StatNumber color="red.600" fontSize="3xl" fontWeight="bold">
-                  {alertCount}
+                  {dataLoading ? <Spinner size="lg" /> : alertCount}
                 </StatNumber>
               </Stat>
             </CardBody>
@@ -320,7 +308,7 @@ export default function Dashboard() {
               <Stat>
                 <StatLabel color="gray.500" fontSize="sm">Links Down</StatLabel>
                 <StatNumber color="yellow.600" fontSize="3xl" fontWeight="bold">
-                  {linksDown}
+                  {dataLoading ? <Spinner size="lg" /> : linksDown}
                 </StatNumber>
               </Stat>
             </CardBody>
@@ -349,7 +337,13 @@ export default function Dashboard() {
                     <Heading size="md">VLAN / Interface Traffic (Real-time)</Heading>
                   </CardHeader>
                   <CardBody>
-                    <BandwidthChart resellers={resellers} />
+                    {dataLoading ? (
+                      <Center p={8}>
+                        <Spinner size="xl" color="blue.500" />
+                      </Center>
+                    ) : (
+                      <BandwidthChart resellers={resellers} />
+                    )}
                   </CardBody>
                 </Card>
 
@@ -359,46 +353,66 @@ export default function Dashboard() {
                     <Heading size="md">Reseller Overview</Heading>
                   </CardHeader>
                   <CardBody>
-                    <Table variant="simple">
-                      <Thead>
-                        <Tr>
-                          <Th>Reseller</Th>
-                          <Th>Plan</Th>
-                          <Th>Current Usage</Th>
-                          <Th>Utilization</Th>
-                          <Th>Link Status</Th>
-                          <Th>Actions</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {resellers.map((reseller) => (
-                          <Tr key={reseller.id}>
-                            <Td>
-                              <Text 
-                                fontWeight="bold" 
-                                cursor="pointer" 
-                                color="blue.500"
-                                _hover={{ textDecoration: 'underline' }}
-                                onClick={() => handleResellerClick(reseller.id)}
-                              >
-                                {reseller.name}
-                              </Text>
-                            </Td>
-                            <Td>{reseller.plan_mbps} Mbps</Td>
-                            <Td>{(currentUsage[reseller.id] || 0).toFixed(1)} Mbps</Td>
-                            <Td>{getUtilizationBadge(reseller)}</Td>
-                            <Td>{getLinkStatusBadge(reseller.id)}</Td>
-                            <Td>
-                              <ResellerActionButtons
-                                reseller={reseller}
-                                onEdit={handleEditReseller}
-                                onDelete={handleDeleteReseller}
-                              />
-                            </Td>
+                    {dataLoading ? (
+                      <Center p={8}>
+                        <Spinner size="xl" color="blue.500" />
+                      </Center>
+                    ) : (
+                      <Table variant="simple">
+                        <Thead>
+                          <Tr>
+                            <Th>Reseller</Th>
+                            <Th>Plan</Th>
+                            <Th>Current Usage</Th>
+                            <Th>Utilization</Th>
+                            <Th>Link Status</Th>
+                            <Th>Actions</Th>
                           </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
+                        </Thead>
+                        <Tbody>
+                          {dataLoading ? (
+                            // Show skeleton rows while loading
+                            Array.from({ length: 3 }).map((_, index) => (
+                              <Tr key={`skeleton-${index}`}>
+                                <Td><Spinner size="sm" /></Td>
+                                <Td><Spinner size="sm" /></Td>
+                                <Td><Spinner size="sm" /></Td>
+                                <Td><Spinner size="sm" /></Td>
+                                <Td><Spinner size="sm" /></Td>
+                                <Td><Spinner size="sm" /></Td>
+                              </Tr>
+                            ))
+                          ) : (
+                            resellers.map((reseller) => (
+                              <Tr key={reseller.id}>
+                                <Td>
+                                  <Text 
+                                    fontWeight="bold" 
+                                    cursor="pointer" 
+                                    color="blue.500"
+                                    _hover={{ textDecoration: 'underline' }}
+                                    onClick={() => handleResellerClick(reseller.id)}
+                                  >
+                                    {reseller.name}
+                                  </Text>
+                                </Td>
+                                <Td>{reseller.plan_mbps} Mbps</Td>
+                                <Td>{(currentUsage[reseller.id] || 0).toFixed(1)} Mbps</Td>
+                                <Td>{getUtilizationBadge(reseller)}</Td>
+                                <Td>{getLinkStatusBadge(reseller.id)}</Td>
+                                <Td>
+                                  <ResellerActionButtons
+                                    reseller={reseller}
+                                    onEdit={handleEditReseller}
+                                    onDelete={handleDeleteReseller}
+                                  />
+                                </Td>
+                              </Tr>
+                            ))
+                          )}
+                        </Tbody>
+                      </Table>
+                    )}
 
                     {resellers.length === 0 && (
                       <Center p={8}>
@@ -415,7 +429,13 @@ export default function Dashboard() {
                       <Heading size="md">NTTN Aggregated Link</Heading>
                     </CardHeader>
                     <CardBody>
-                      <NTTNChart resellers={resellers} />
+                      {dataLoading ? (
+                        <Center p={8}>
+                          <Spinner size="xl" color="blue.500" />
+                        </Center>
+                      ) : (
+                        <NTTNChart resellers={resellers} />
+                      )}
                     </CardBody>
                   </Card>
 
@@ -448,28 +468,46 @@ export default function Dashboard() {
             <TabPanel p={0}>
               <Card bg={glassBg} backdropFilter="blur(10px)" borderRadius="xl" shadow="lg">
                 <CardBody>
-                  <ResellerManagement 
-                    resellers={resellers}
-                    onResellerChange={handleResellerChange}
-                    initialReseller={managingReseller}
-                    onResellerManaged={() => {
-                      setManagingReseller(null);
-                      setShowManagement(false);
-                      setActiveTab(0); // Switch back to dashboard tab
-                    }}
-                  />
+                  {dataLoading ? (
+                    <Center p={8}>
+                      <Spinner size="xl" color="blue.500" />
+                    </Center>
+                  ) : (
+                    <ResellerManagement 
+                      resellers={resellers}
+                      onResellerChange={handleResellerChange}
+                      initialReseller={managingReseller}
+                      onResellerManaged={() => {
+                        setManagingReseller(null);
+                        setShowManagement(false);
+                        setActiveTab(0); // Switch back to dashboard tab
+                      }}
+                    />
+                  )}
                 </CardBody>
               </Card>
             </TabPanel>
 
             {/* Leaderboard Tab */}
             <TabPanel p={0}>
-              <ResellerLeaderboard />
+              {dataLoading ? (
+                <Center p={8}>
+                  <Spinner size="xl" color="blue.500" />
+                </Center>
+              ) : (
+                <ResellerLeaderboard />
+              )}
             </TabPanel>
 
                          {/* NTTN Links Tab */}
              <TabPanel p={0}>
-               <NTTNManagement />
+               {dataLoading ? (
+                 <Center p={8}>
+                   <Spinner size="xl" color="blue.500" />
+                 </Center>
+               ) : (
+                 <NTTNManagement />
+               )}
              </TabPanel>
           </TabPanels>
         </Tabs>

@@ -284,7 +284,15 @@ export default function NTTNChart({ resellers, height = 350 }: NTTNChartProps) {
   };
 
   if (loading) {
-    return null; // Make loading invisible
+    return (
+      <Center h={height}>
+        <VStack spacing={4}>
+          <Spinner size="xl" color="purple.500" thickness="4px" />
+          <Text color="gray.500" fontSize="lg">Loading NTTN data...</Text>
+          <Text color="gray.400" fontSize="sm">Fetching aggregated link information</Text>
+        </VStack>
+      </Center>
+    );
   }
 
   if (error) {

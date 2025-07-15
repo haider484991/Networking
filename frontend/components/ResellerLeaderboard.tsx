@@ -201,7 +201,7 @@ export default function ResellerLeaderboard() {
             </Text>
           </Box>
           <Button size="sm" onClick={loadLeaderboard} isLoading={loading} colorScheme="blue">
-            Refresh
+            {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
         </Flex>
       </CardHeader>

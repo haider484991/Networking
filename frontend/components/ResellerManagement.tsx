@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogBody,
   AlertDialogFooter,
+  Spinner,
 } from '@chakra-ui/react';
 import { AddIcon, EditIcon, DeleteIcon, DownloadIcon } from '@chakra-ui/icons';
 import { apiClient, Reseller, CreateResellerRequest, UpdateResellerRequest } from '../utils/api';
@@ -380,7 +381,7 @@ export function ResellerActionButtons({
     <HStack spacing={2}>
       <IconButton
         aria-label="Download PDF report"
-        icon={<DownloadIcon />}
+        icon={isDownloading ? <Spinner size="sm" /> : <DownloadIcon />}
         size="sm"
         colorScheme="green"
         variant="ghost"
@@ -395,6 +396,7 @@ export function ResellerActionButtons({
         colorScheme="blue"
         variant="ghost"
         onClick={handleEditClick}
+        _hover={{ bg: 'blue.50' }}
       />
       <IconButton
         aria-label="Delete reseller"
@@ -403,6 +405,7 @@ export function ResellerActionButtons({
         colorScheme="red"
         variant="ghost"
         onClick={handleDeleteClick}
+        _hover={{ bg: 'red.50' }}
       />
     </HStack>
   );
