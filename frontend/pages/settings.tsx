@@ -1,5 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
+import { 
+  Box, 
+  Container, 
+  Heading, 
+  Text, 
+  Tabs, 
+  TabList, 
+  TabPanels, 
+  Tab, 
+  TabPanel,
+  VStack,
+  HStack,
+  Badge,
+  useColorModeValue,
+  Alert,
+  AlertIcon,
+  AlertDescription,
+  CloseButton,
+  Flex,
+  Spacer
+} from '@chakra-ui/react';
+import Link from 'next/link';
 // import { useAuth } from '../hooks/useAuth';
 
 // Component imports
@@ -16,8 +38,12 @@ interface TabItem {
 
 const SettingsPage: React.FC = () => {
   // const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('routers');
+  const [activeTab, setActiveTab] = useState<number>(0);
   const [alert, setAlert] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const headerBg = useColorModeValue('blue.600', 'blue.400');
 
   const tabs: TabItem[] = [
     {
@@ -45,31 +71,6 @@ const SettingsPage: React.FC = () => {
     setTimeout(() => setAlert(null), 5000);
   };
 
-  // Remove authentication requirement for admin settings
-  // if (loading) {
-  //   return (
-  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-  //       <div className="text-center">
-  //         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-  //         <p className="mt-4 text-gray-600">Loading...</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-  // if (!user) {
-  //   return (
-  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-  //       <div className="text-center">
-  //         <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-  //         <p className="text-gray-600">Please log in to access the settings.</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-  const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component || RouterManagement;
-
   return (
     <>
       <Head>
@@ -77,72 +78,121 @@ const SettingsPage: React.FC = () => {
         <meta name="description" content="Comprehensive ISP admin settings for router, device, and reseller management" />
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">ISP Admin Settings</h1>
-                <p className="mt-1 text-sm text-gray-500">
-                  Manage routers, monitor devices, and configure resellers
-                </p>
-              </div>
-              <div className="text-sm text-gray-500">
-                ISP Admin Interface
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Navigation Tabs */}
-        <div className="bg-white border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex space-x-8" aria-label="Tabs">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    ${activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }
-                    whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2
-                  `}
-                >
-                  <span className="text-lg">{tab.icon}</span>
-                  <span>{tab.label}</span>
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
+      <Box minH="100vh" bg={bgColor}>
+        {/* Header Section */}
+        <Box bg={headerBg} color="white" py={8} mb={8}>
+          <Container maxW="7xl">
+            <VStack align="start" spacing={4}>
+              <HStack spacing={6} fontSize="sm">
+                <Link href="/dashboard">
+                  <Text cursor="pointer" _hover={{ color: 'blue.200' }}>Dashboard</Text>
+                </Link>
+                <Link href="/devices">
+                  <Text cursor="pointer" _hover={{ color: 'blue.200' }}>Devices</Text>
+                </Link>
+                <Link href="/resellers">
+                  <Text cursor="pointer" _hover={{ color: 'blue.200' }}>Resellers</Text>
+                </Link>
+                <Link href="/alerts">
+                  <Text cursor="pointer" _hover={{ color: 'blue.200' }}>Alerts</Text>
+                </Link>
+                <Spacer />
+                <Link href="/settings">
+                  <Text cursor="pointer" fontWeight="bold" borderBottom="2px solid white">Settings</Text>
+                </Link>
+              </HStack>
+              
+              <Heading as="h1" size="xl" fontWeight="bold">
+                ISP Admin Settings
+              </Heading>
+              
+              <Text fontSize="lg" opacity={0.9}>
+                Manage routers, monitor devices, and configure resellers
+              </Text>
+              
+              <HStack spacing={4}>
+                <Badge colorScheme="green" px={3} py={1} borderRadius="full">
+                  Router Control
+                </Badge>
+                <Badge colorScheme="blue" px={3} py={1} borderRadius="full">
+                  Device Monitoring
+                </Badge>
+                <Badge colorScheme="purple" px={3} py={1} borderRadius="full">
+                  Reseller Management
+                </Badge>
+              </HStack>
+            </VStack>
+          </Container>
+        </Box>
 
         {/* Main Content */}
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <ActiveComponent onAlert={showAlert} />
-          </div>
-        </main>
+        <Container maxW="7xl" px={6}>
+          <Box bg={cardBg} borderRadius="xl" shadow="lg" overflow="hidden">
+            <Tabs 
+              index={activeTab} 
+              onChange={setActiveTab}
+              variant="enclosed"
+              colorScheme="blue"
+            >
+              <TabList bg={useColorModeValue('gray.100', 'gray.700')} px={6}>
+                {tabs.map((tab, index) => (
+                  <Tab 
+                    key={tab.id}
+                    fontWeight="medium"
+                    _selected={{
+                      bg: cardBg,
+                      borderBottomColor: cardBg,
+                      borderTopColor: 'blue.500',
+                      borderTopWidth: '3px'
+                    }}
+                  >
+                    <HStack spacing={2}>
+                      <Text fontSize="lg">{tab.icon}</Text>
+                      <Text>{tab.label}</Text>
+                    </HStack>
+                  </Tab>
+                ))}
+              </TabList>
+
+              <TabPanels>
+                {tabs.map((tab, index) => (
+                  <TabPanel key={tab.id} p={8}>
+                    <tab.component onAlert={showAlert} />
+                  </TabPanel>
+                ))}
+              </TabPanels>
+            </Tabs>
+          </Box>
+        </Container>
 
         {/* Alert Toast */}
         {alert && (
-          <div className={`fixed top-4 right-4 p-4 rounded-md shadow-md z-50 ${
-            alert.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-          }`}>
-            <div className="flex items-center justify-between">
-              <span>{alert.message}</span>
-              <button
+          <Box
+            position="fixed"
+            top={4}
+            right={4}
+            zIndex={50}
+            maxW="md"
+          >
+            <Alert 
+              status={alert.type === 'success' ? 'success' : 'error'}
+              borderRadius="md"
+              boxShadow="lg"
+            >
+              <AlertIcon />
+              <Box flex="1">
+                <AlertDescription>{alert.message}</AlertDescription>
+              </Box>
+              <CloseButton
                 onClick={() => setAlert(null)}
-                className="ml-4 text-white hover:text-gray-200"
-              >
-                ×
-              </button>
-            </div>
-          </div>
+                position="absolute"
+                right="8px"
+                top="8px"
+              />
+            </Alert>
+          </Box>
         )}
-      </div>
+      </Box>
     </>
   );
 };
