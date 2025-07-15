@@ -227,8 +227,22 @@ class MikroTikRouterClient:
             return None
 
     def get_vlan_interfaces(self) -> List[Dict]:
-        """Get all VLAN interfaces."""
+        """Retrieve VLAN interfaces.
+
+        Some RouterOS versions expose VLANs directly under the generic
+        `/interface` menu with the field `type` set to `vlan` instead of the
+        dedicated `/interface/vlan` menu. To be robust, we first fetch the full
+        interface list and filter by `type == 'vlan'`. If none are found, we
+        fall back to the dedicated menu.
+        """
         try:
+            # Fetch complete interface list and filter for VLANs
+            interfaces = self.execute_command('interface')
+            vlan_ifaces = [iface for iface in interfaces if iface.get('type') == 'vlan']
+            if vlan_ifaces:
+                return vlan_ifaces
+
+            # Fallback – legacy menu `/interface/vlan`
             return self.execute_command('interface/vlan')
         except Exception as exc:
             logger.error("Failed to get VLAN interfaces: %s", exc)

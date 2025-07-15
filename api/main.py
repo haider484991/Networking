@@ -190,6 +190,7 @@ async def root():
 # ==============================================================================
 
 @app.get("/resellers", response_model=List[Reseller])
+@app.get("/api/resellers", response_model=List[Reseller])
 async def get_resellers():
     """Get all resellers from database."""
     try:
@@ -208,6 +209,7 @@ async def get_resellers():
         raise HTTPException(status_code=500, detail=f"Failed to fetch resellers: {str(e)}")
 
 @app.post("/resellers", response_model=Reseller)
+@app.post("/api/resellers", response_model=Reseller)
 async def create_reseller(request: CreateResellerRequest):
     """Create a new reseller and its router mapping."""
     client = get_client()
