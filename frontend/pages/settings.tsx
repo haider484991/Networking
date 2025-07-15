@@ -19,9 +19,15 @@ import {
   AlertDescription,
   CloseButton,
   Flex,
-  Spacer
+  Spacer,
+  Card,
+  CardBody,
+  Grid,
+  GridItem,
+  Icon
 } from '@chakra-ui/react';
 import Link from 'next/link';
+import { SettingsIcon, ViewIcon, PhoneIcon, AddIcon, LockIcon } from '@chakra-ui/icons';
 // import { useAuth } from '../hooks/useAuth';
 
 // Component imports
@@ -32,8 +38,9 @@ import ResellerManagement from '../components/SettingsResellerManagement';
 interface TabItem {
   id: string;
   label: string;
-  icon: string;
+  icon: React.ElementType;
   component: React.ComponentType<{onAlert: (message: string, type: 'success' | 'error') => void}>;
+  description: string;
 }
 
 const SettingsPage: React.FC = () => {
@@ -41,27 +48,26 @@ const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<number>(0);
   const [alert, setAlert] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const bgColor = useColorModeValue('gray.50', 'gray.900');
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const headerBg = useColorModeValue('blue.600', 'blue.400');
-
   const tabs: TabItem[] = [
     {
       id: 'routers',
       label: 'Router Management',
-      icon: '🌐',
+      icon: ViewIcon,
+      description: 'Configure and monitor network routers',
       component: RouterManagement
     },
     {
       id: 'devices',
       label: 'Network Devices',
-      icon: '📱',
+      icon: PhoneIcon,
+      description: 'Monitor connected network devices',
       component: DeviceMonitoring
     },
     {
       id: 'resellers',
       label: 'Reseller Management',
-      icon: '👥',
+      icon: AddIcon,
+      description: 'Manage reseller accounts and permissions',
       component: ResellerManagement
     }
   ];
@@ -78,80 +84,230 @@ const SettingsPage: React.FC = () => {
         <meta name="description" content="Comprehensive ISP admin settings for router, device, and reseller management" />
       </Head>
 
-      <Box minH="100vh" bg={bgColor}>
+      <Box
+        minH="100vh"
+        bgGradient="linear(135deg, blue.50, purple.50, pink.50)"
+        position="relative"
+        _before={{
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage: 'radial-gradient(circle at 25% 25%, rgba(79, 70, 229, 0.1) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(236, 72, 153, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none'
+        }}
+      >
         {/* Header Section */}
-        <Box bg={headerBg} color="white" py={8} mb={8}>
-          <Container maxW="7xl">
-            <VStack align="start" spacing={4}>
-              <HStack spacing={6} fontSize="sm">
-                <Link href="/dashboard">
-                  <Text cursor="pointer" _hover={{ color: 'blue.200' }}>Dashboard</Text>
-                </Link>
-                <Link href="/devices">
-                  <Text cursor="pointer" _hover={{ color: 'blue.200' }}>Devices</Text>
-                </Link>
-                <Link href="/resellers">
-                  <Text cursor="pointer" _hover={{ color: 'blue.200' }}>Resellers</Text>
-                </Link>
-                <Link href="/alerts">
-                  <Text cursor="pointer" _hover={{ color: 'blue.200' }}>Alerts</Text>
-                </Link>
-                <Spacer />
-                <Link href="/settings">
-                  <Text cursor="pointer" fontWeight="bold" borderBottom="2px solid white">Settings</Text>
-                </Link>
-              </HStack>
+        <Box
+          bgGradient="linear(135deg, blue.600, purple.600, pink.500)"
+          color="white"
+          py={12}
+          mb={8}
+          position="relative"
+          _before={{
+            content: '""',
+            position: 'absolute',
+            inset: 0,
+            bgGradient: 'linear(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05))',
+            backdropFilter: 'blur(10px)'
+          }}
+        >
+          <Container maxW="7xl" position="relative" zIndex={1}>
+            <VStack align="start" spacing={6}>
+              {/* Navigation Breadcrumb */}
+              <Card
+                bg="rgba(255, 255, 255, 0.1)"
+                backdropFilter="blur(10px)"
+                border="1px solid rgba(255, 255, 255, 0.2)"
+                shadow="xl"
+                borderRadius="xl"
+                p={4}
+              >
+                <HStack spacing={6} fontSize="sm" color="whiteAlpha.900">
+                  <Link href="/dashboard">
+                    <Text cursor="pointer" _hover={{ color: 'white', textDecoration: 'underline' }}>
+                      📊 Dashboard
+                    </Text>
+                  </Link>
+                  <Link href="/devices">
+                    <Text cursor="pointer" _hover={{ color: 'white', textDecoration: 'underline' }}>
+                      📱 Devices
+                    </Text>
+                  </Link>
+                  <Link href="/resellers">
+                    <Text cursor="pointer" _hover={{ color: 'white', textDecoration: 'underline' }}>
+                      👥 Resellers
+                    </Text>
+                  </Link>
+                  <Link href="/alerts">
+                    <Text cursor="pointer" _hover={{ color: 'white', textDecoration: 'underline' }}>
+                      🚨 Alerts
+                    </Text>
+                  </Link>
+                  <Text color="white" fontWeight="bold" display="flex" alignItems="center" gap={2}>
+                    <Icon as={SettingsIcon} />
+                    Settings
+                  </Text>
+                </HStack>
+              </Card>
               
-              <Heading as="h1" size="xl" fontWeight="bold">
-                ISP Admin Settings
-              </Heading>
-              
-              <Text fontSize="lg" opacity={0.9}>
-                Manage routers, monitor devices, and configure resellers
-              </Text>
-              
-              <HStack spacing={4}>
-                <Badge colorScheme="green" px={3} py={1} borderRadius="full">
-                  Router Control
-                </Badge>
-                <Badge colorScheme="blue" px={3} py={1} borderRadius="full">
-                  Device Monitoring
-                </Badge>
-                <Badge colorScheme="purple" px={3} py={1} borderRadius="full">
-                  Reseller Management
-                </Badge>
-              </HStack>
+              {/* Title Section */}
+              <VStack align="start" spacing={4}>
+                <HStack spacing={3}>
+                  <Icon as={LockIcon} boxSize={10} />
+                  <Heading as="h1" size="2xl" fontWeight="bold" textShadow="2px 2px 4px rgba(0,0,0,0.3)">
+                    ISP Admin Settings
+                  </Heading>
+                </HStack>
+                
+                <Text fontSize="xl" opacity={0.95} maxW="600px" textShadow="1px 1px 2px rgba(0,0,0,0.2)">
+                  Comprehensive administration panel for managing routers, monitoring devices, and configuring resellers
+                </Text>
+                
+                {/* Feature Badges */}
+                <HStack spacing={3} flexWrap="wrap">
+                  <Badge
+                    bg="rgba(72, 187, 120, 0.2)"
+                    color="green.100"
+                    px={4}
+                    py={2}
+                    borderRadius="full"
+                    border="1px solid rgba(72, 187, 120, 0.3)"
+                    backdropFilter="blur(10px)"
+                    fontSize="sm"
+                    fontWeight="semibold"
+                  >
+                    🌐 ROUTER CONTROL
+                  </Badge>
+                  <Badge
+                    bg="rgba(66, 153, 225, 0.2)"
+                    color="blue.100"
+                    px={4}
+                    py={2}
+                    borderRadius="full"
+                    border="1px solid rgba(66, 153, 225, 0.3)"
+                    backdropFilter="blur(10px)"
+                    fontSize="sm"
+                    fontWeight="semibold"
+                  >
+                    📱 DEVICE MONITORING
+                  </Badge>
+                  <Badge
+                    bg="rgba(159, 122, 234, 0.2)"
+                    color="purple.100"
+                    px={4}
+                    py={2}
+                    borderRadius="full"
+                    border="1px solid rgba(159, 122, 234, 0.3)"
+                    backdropFilter="blur(10px)"
+                    fontSize="sm"
+                    fontWeight="semibold"
+                  >
+                    👥 RESELLER MANAGEMENT
+                  </Badge>
+                </HStack>
+              </VStack>
             </VStack>
           </Container>
         </Box>
 
         {/* Main Content */}
-        <Container maxW="7xl" px={6}>
-          <Box bg={cardBg} borderRadius="xl" shadow="lg" overflow="hidden">
+        <Container maxW="7xl" px={6} position="relative" zIndex={1}>
+          <Card
+            bg="rgba(255, 255, 255, 0.9)"
+            backdropFilter="blur(20px)"
+            border="1px solid rgba(255, 255, 255, 0.3)"
+            shadow="2xl"
+            borderRadius="2xl"
+            overflow="hidden"
+          >
             <Tabs 
               index={activeTab} 
               onChange={setActiveTab}
-              variant="enclosed"
+              variant="unstyled"
               colorScheme="blue"
             >
-              <TabList bg={useColorModeValue('gray.100', 'gray.700')} px={6}>
-                {tabs.map((tab, index) => (
-                  <Tab 
-                    key={tab.id}
-                    fontWeight="medium"
-                    _selected={{
-                      bg: cardBg,
-                      borderBottomColor: cardBg,
-                      borderTopColor: 'blue.500',
-                      borderTopWidth: '3px'
-                    }}
-                  >
-                    <HStack spacing={2}>
-                      <Text fontSize="lg">{tab.icon}</Text>
-                      <Text>{tab.label}</Text>
-                    </HStack>
-                  </Tab>
-                ))}
+              <TabList 
+                bg="rgba(247, 250, 252, 0.8)"
+                backdropFilter="blur(10px)"
+                borderBottom="1px solid rgba(226, 232, 240, 0.5)"
+                px={6}
+                py={4}
+              >
+                <Grid templateColumns="repeat(auto-fit, minmax(250px, 1fr))" gap={4} w="full">
+                  {tabs.map((tab, index) => (
+                    <GridItem key={tab.id}>
+                      <Tab
+                        p={0}
+                        w="full"
+                        _selected={{}}
+                        _hover={{}}
+                        _focus={{ boxShadow: 'none' }}
+                      >
+                        <Card
+                          w="full"
+                          bg={activeTab === index 
+                            ? "rgba(66, 153, 225, 0.1)" 
+                            : "rgba(255, 255, 255, 0.6)"
+                          }
+                          border={activeTab === index 
+                            ? "2px solid rgba(66, 153, 225, 0.3)" 
+                            : "1px solid rgba(226, 232, 240, 0.5)"
+                          }
+                          backdropFilter="blur(10px)"
+                          shadow={activeTab === index ? "lg" : "sm"}
+                          borderRadius="xl"
+                          transition="all 0.3s ease"
+                          _hover={{
+                            transform: "translateY(-2px)",
+                            shadow: "lg",
+                            bg: activeTab === index 
+                              ? "rgba(66, 153, 225, 0.15)" 
+                              : "rgba(255, 255, 255, 0.8)"
+                          }}
+                        >
+                          <CardBody p={6}>
+                            <VStack spacing={3}>
+                              <Box
+                                p={3}
+                                borderRadius="full"
+                                bg={activeTab === index 
+                                  ? "rgba(66, 153, 225, 0.2)" 
+                                  : "rgba(113, 128, 150, 0.1)"
+                                }
+                              >
+                                <Icon 
+                                  as={tab.icon} 
+                                  boxSize={6}
+                                  color={activeTab === index ? "blue.600" : "gray.600"}
+                                />
+                              </Box>
+                              <VStack spacing={1}>
+                                <Text 
+                                  fontWeight="bold" 
+                                  fontSize="lg"
+                                  color={activeTab === index ? "blue.700" : "gray.700"}
+                                >
+                                  {tab.label}
+                                </Text>
+                                <Text 
+                                  fontSize="sm" 
+                                  color="gray.600" 
+                                  textAlign="center"
+                                  opacity={0.8}
+                                >
+                                  {tab.description}
+                                </Text>
+                              </VStack>
+                            </VStack>
+                          </CardBody>
+                        </Card>
+                      </Tab>
+                    </GridItem>
+                  ))}
+                </Grid>
               </TabList>
 
               <TabPanels>
@@ -162,7 +318,7 @@ const SettingsPage: React.FC = () => {
                 ))}
               </TabPanels>
             </Tabs>
-          </Box>
+          </Card>
         </Container>
 
         {/* Alert Toast */}
@@ -176,8 +332,11 @@ const SettingsPage: React.FC = () => {
           >
             <Alert 
               status={alert.type === 'success' ? 'success' : 'error'}
-              borderRadius="md"
-              boxShadow="lg"
+              borderRadius="xl"
+              boxShadow="2xl"
+              bg="rgba(255, 255, 255, 0.95)"
+              backdropFilter="blur(20px)"
+              border="1px solid rgba(255, 255, 255, 0.3)"
             >
               <AlertIcon />
               <Box flex="1">
