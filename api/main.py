@@ -551,6 +551,27 @@ async def get_recent_bandwidth_updates(limit: int = 20):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==============================================================================
+# VLAN MANAGEMENT MODELS
+# ==============================================================================
+
+class VLANConfigModel(BaseModel):
+    vlan_id: int
+    interface_name: Optional[str] = None
+    capacity_mbps: float
+    enabled: Optional[bool] = True
+    description: Optional[str] = None
+
+class NTTNVLANModel(VLANConfigModel):
+    nttn_link_id: str
+
+class ResellerVLANModel(VLANConfigModel):
+    reseller_id: str
+
+class VLANSyncRequest(BaseModel):
+    router_id: str
+    force_sync: Optional[bool] = False
+
+# ==============================================================================
 # NEW NTTN LINK ENDPOINTS
 # ==============================================================================
 
@@ -624,6 +645,148 @@ async def trigger_nttn_monitoring():
     except Exception as e:
         print(f"Error triggering NTTN monitoring: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ==============================================================================
+# VLAN MANAGEMENT ENDPOINTS
+# ==============================================================================
+
+@app.get("/api/vlans/nttn/{nttn_link_id}")
+def get_nttn_vlans(nttn_link_id: str):
+    """Get all VLAN configurations for an NTTN link."""
+    try:
+        client = get_client()
+        result = client.table("nttn_vlans").select("*").eq("nttn_link_id", nttn_link_id).execute()
+        return {"vlans": result.data or []}
+    except Exception as e:
+        logger.error(f"Error fetching NTTN VLANs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch NTTN VLANs")
+
+@app.post("/api/vlans/nttn")
+def create_nttn_vlan(vlan: NTTNVLANModel):
+    """Create a new VLAN configuration for an NTTN link."""
+    try:
+        client = get_client()
+        
+        # Check if VLAN ID already exists for this NTTN link
+        existing = client.table("nttn_vlans").select("id").eq("nttn_link_id", vlan.nttn_link_id).eq("vlan_id", vlan.vlan_id).execute()
+        if existing.data:
+            raise HTTPException(status_code=409, detail=f"VLAN {vlan.vlan_id} already exists for NTTN link {vlan.nttn_link_id}")
+        
+        # Create VLAN configuration
+        vlan_data = {
+            "nttn_link_id": vlan.nttn_link_id,
+            "vlan_id": vlan.vlan_id,
+            "interface_name": vlan.interface_name or f"vlan{vlan.vlan_id}",
+            "capacity_mbps": vlan.capacity_mbps,
+            "enabled": vlan.enabled,
+            "description": vlan.description,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        result = client.table("nttn_vlans").insert(vlan_data).execute()
+        return {"message": "NTTN VLAN created successfully", "vlan": result.data[0]}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating NTTN VLAN: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create NTTN VLAN")
+
+@app.get("/api/vlans/reseller/{reseller_id}")
+def get_reseller_vlans(reseller_id: str):
+    """Get all VLAN configurations for a reseller."""
+    try:
+        client = get_client()
+        result = client.table("reseller_vlans").select("*").eq("reseller_id", reseller_id).execute()
+        return {"vlans": result.data or []}
+    except Exception as e:
+        logger.error(f"Error fetching reseller VLANs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch reseller VLANs")
+
+@app.post("/api/vlans/reseller")
+def create_reseller_vlan(vlan: ResellerVLANModel):
+    """Create a new VLAN configuration for a reseller."""
+    try:
+        client = get_client()
+        
+        # Check if VLAN ID already exists for this reseller
+        existing = client.table("reseller_vlans").select("id").eq("reseller_id", vlan.reseller_id).eq("vlan_id", vlan.vlan_id).execute()
+        if existing.data:
+            raise HTTPException(status_code=409, detail=f"VLAN {vlan.vlan_id} already exists for reseller {vlan.reseller_id}")
+        
+        # Create VLAN configuration
+        vlan_data = {
+            "reseller_id": vlan.reseller_id,
+            "vlan_id": vlan.vlan_id,
+            "interface_name": vlan.interface_name or f"vlan{vlan.vlan_id}",
+            "capacity_mbps": vlan.capacity_mbps,
+            "enabled": vlan.enabled,
+            "description": vlan.description,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        result = client.table("reseller_vlans").insert(vlan_data).execute()
+        return {"message": "Reseller VLAN created successfully", "vlan": result.data[0]}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating reseller VLAN: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create reseller VLAN")
+
+@app.post("/api/vlans/sync")
+def sync_vlan_interfaces(request: VLANSyncRequest):
+    """Sync VLAN interfaces from MikroTik router."""
+    try:
+        client = get_client()
+        
+        # Get router configuration
+        router_result = client.table("router_configs").select("*").eq("id", request.router_id).eq("enabled", True).execute()
+        if not router_result.data:
+            raise HTTPException(status_code=404, detail="Router not found or disabled")
+        
+        router_config = router_result.data[0]
+        
+        # Connect to MikroTik router
+        from src.mikrotik_client import MikroTikRouterClient
+        router_client = MikroTikRouterClient(
+            host=router_config['host'],
+            username=router_config['username'], 
+            password=router_config['password'],
+            port=router_config.get('port', 8728),
+            use_ssl=router_config.get('use_ssl', False)
+        )
+        
+        if not router_client.connect():
+            raise HTTPException(status_code=503, detail="Failed to connect to router")
+        
+        # Get VLAN interfaces from router
+        vlan_interfaces = router_client.get_vlan_interfaces()
+        router_client.disconnect()
+        
+        synced_vlans = []
+        for interface in vlan_interfaces:
+            if 'vlan-id' in interface and interface.get('name'):
+                vlan_info = {
+                    "vlan_id": int(interface['vlan-id']),
+                    "interface_name": interface['name'],
+                    "disabled": interface.get('disabled', 'false') == 'true',
+                    "mtu": interface.get('mtu', '1500'),
+                    "arp": interface.get('arp', 'enabled')
+                }
+                synced_vlans.append(vlan_info)
+        
+        return {
+            "message": f"Successfully synced {len(synced_vlans)} VLAN interfaces from router",
+            "router_id": request.router_id,
+            "vlans": synced_vlans
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error syncing VLAN interfaces: {e}")
+        raise HTTPException(status_code=500, detail="Failed to sync VLAN interfaces")
 
 # ==============================================================================
 # COMPREHENSIVE ROUTER MANAGEMENT API
