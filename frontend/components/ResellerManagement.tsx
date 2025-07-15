@@ -288,11 +288,16 @@ export function ResellerActionButtons({
   onDelete: (reseller: Reseller) => void;
 }) {
   const toast = useToast();
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadReport = async () => {
+    if (isDownloading) return; // Prevent multiple clicks
+    
+    setIsDownloading(true);
     try {
-      // Use the API client to get the report
-      const response = await fetch(`http://localhost:8000/resellers/${reseller.id}/report`, {
+      // Use the configured API base URL instead of hardcoded localhost
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}/resellers/${reseller.id}/report`, {
         method: 'GET',
         headers: {
           'Accept': 'application/pdf',
@@ -318,15 +323,54 @@ export function ResellerActionButtons({
           isClosable: true,
         });
       } else {
-        throw new Error(`Failed to download report: ${response.status}`);
+        const errorMessage = response.status === 404 
+          ? 'Report not found. Make sure the API server is running.'
+          : `Server error: ${response.status} ${response.statusText}`;
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Error downloading report:', error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to download PDF report. Please try again.';
+      
       toast({
         title: 'Download failed',
-        description: 'Failed to download PDF report. Please try again.',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleEditClick = () => {
+    try {
+      onEdit(reseller);
+    } catch (error) {
+      console.error('Error handling edit action:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to open edit dialog. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleDeleteClick = () => {
+    try {
+      onDelete(reseller);
+    } catch (error) {
+      console.error('Error handling delete action:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to open delete dialog. Please try again.',
+        status: 'error',
+        duration: 3000,
         isClosable: true,
       });
     }
@@ -341,6 +385,8 @@ export function ResellerActionButtons({
         colorScheme="green"
         variant="ghost"
         onClick={handleDownloadReport}
+        isLoading={isDownloading}
+        isDisabled={isDownloading}
       />
       <IconButton
         aria-label="Edit reseller"
@@ -348,7 +394,7 @@ export function ResellerActionButtons({
         size="sm"
         colorScheme="blue"
         variant="ghost"
-        onClick={() => onEdit(reseller)}
+        onClick={handleEditClick}
       />
       <IconButton
         aria-label="Delete reseller"
@@ -356,7 +402,7 @@ export function ResellerActionButtons({
         size="sm"
         colorScheme="red"
         variant="ghost"
-        onClick={() => onDelete(reseller)}
+        onClick={handleDeleteClick}
       />
     </HStack>
   );

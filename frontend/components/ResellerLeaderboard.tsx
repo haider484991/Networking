@@ -50,6 +50,11 @@ export default function ResellerLeaderboard() {
   }, []);
 
   const loadLeaderboard = async () => {
+    if (loading) {
+      console.log('Already loading leaderboard data, skipping...');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     
@@ -149,7 +154,21 @@ export default function ResellerLeaderboard() {
   };
 
   if (loading) {
-    return null; // Make loading invisible
+    return (
+      <Card bg={glassBg} backdropFilter="blur(10px)" borderRadius="xl" shadow="lg">
+        <CardHeader>
+          <Heading size="md">Top Resellers by Usage</Heading>
+        </CardHeader>
+        <CardBody>
+          <Center py={8}>
+            <VStack spacing={4}>
+              <Spinner size="lg" color="blue.500" />
+              <Text color="gray.500">Loading leaderboard data...</Text>
+            </VStack>
+          </Center>
+        </CardBody>
+      </Card>
+    );
   }
 
   if (error) {

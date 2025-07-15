@@ -191,27 +191,42 @@ async def root():
 async def get_resellers():
     """Get all resellers from database."""
     try:
+        print("Fetching all resellers from database...")
         client = get_client()
         response = client.table("resellers").select("*").execute()
-        return [{"resellers": response.data}][0]["resellers"] if response.data else []
+        print(f"Database response: {response}")
+        
+        resellers = response.data if response.data else []
+        print(f"Found {len(resellers)} resellers")
+        return resellers
     except Exception as e:
-        print(f"Database error: {e}")
+        print(f"Database error when fetching resellers: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to fetch resellers: {str(e)}")
 
 @app.get("/resellers/{reseller_id}", response_model=Reseller)
 async def get_reseller(reseller_id: str):
     """Get a specific reseller from database."""
     try:
+        print(f"Fetching reseller with ID: {reseller_id}")
         client = get_client()
         response = client.table("resellers").select("*").eq("id", reseller_id).execute()
-        if response.data:
-            return response.data[0]
+        print(f"Database response for reseller {reseller_id}: {response}")
+        
+        if response.data and len(response.data) > 0:
+            reseller_data = response.data[0]
+            print(f"Found reseller: {reseller_data}")
+            return reseller_data
         else:
-            raise HTTPException(status_code=404, detail="Reseller not found")
+            print(f"Reseller {reseller_id} not found in database")
+            raise HTTPException(status_code=404, detail=f"Reseller '{reseller_id}' not found")
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Database error: {e}")
+        print(f"Database error when fetching reseller {reseller_id}: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to fetch reseller: {str(e)}")
 
 @app.post("/resellers", response_model=Reseller)
@@ -336,13 +351,18 @@ async def delete_reseller(reseller_id: str):
 async def get_reseller_usage(reseller_id: str, hours: int = 24):
     """Get reseller usage from database for the last N hours."""
     try:
+        print(f"Fetching usage data for reseller {reseller_id} for last {hours} hours")
         client = get_client()
         since = datetime.now() - timedelta(hours=hours)
         
         result = client.table("usage_5m").select("*").eq("reseller_id", reseller_id).gte("ts", since.isoformat()).order("ts").execute()
-        return result.data
+        print(f"Usage query result for {reseller_id}: found {len(result.data) if result.data else 0} records")
+        
+        return result.data if result.data else []
     except Exception as e:
-        print(f"Database error: {e}")
+        print(f"Database error when fetching usage for {reseller_id}: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to get usage data: {str(e)}")
 
 @app.get("/alerts", response_model=List[Alert])
@@ -382,15 +402,30 @@ async def get_link_states():
 async def download_reseller_report(reseller_id: str):
     """Download PDF report for a reseller."""
     try:
+        print(f"Generating report for reseller {reseller_id}")
+        
+        # First check if reseller exists
+        client = get_client()
+        reseller_check = client.table("resellers").select("*").eq("id", reseller_id).execute()
+        if not reseller_check.data:
+            raise HTTPException(status_code=404, detail=f"Reseller '{reseller_id}' not found")
+        
         generator = PDFReportGenerator()
         pdf_path = generator.generate_report(reseller_id)
+        
+        print(f"Report generated successfully for {reseller_id}: {pdf_path}")
         
         return FileResponse(
             pdf_path,
             media_type="application/pdf",
             filename=f"reseller_{reseller_id}_report.pdf"
         )
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"Error generating report for {reseller_id}: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to generate report: {str(e)}")
 
 # ==============================================================================

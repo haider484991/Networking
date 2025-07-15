@@ -91,13 +91,22 @@ export default function Dashboard() {
   }, []);
 
   const loadData = async () => {
+    if (dataLoading) {
+      console.log('Already loading data, skipping...');
+      return;
+    }
+    
     setDataLoading(true);
     try {
+      console.log('Loading dashboard data...');
       // Try to fetch data from API
       const [resellersData, linkStatesData] = await Promise.all([
         apiClient.getResellers(),
         apiClient.getLinkStates(),
       ]);
+
+      console.log('Fetched resellers:', resellersData);
+      console.log('Fetched link states:', linkStatesData);
 
       setResellers(resellersData);
       setLinkStates(linkStatesData);
