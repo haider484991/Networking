@@ -20,5 +20,9 @@ def get_client() -> Client:
 def insert_row(table: str, data: Dict[str, Any]) -> None:
     client = get_client()
     resp = client.table(table).insert(data).execute()
-    if resp.get("status_code") not in (200, 201):
+    # For newer Supabase client, resp is an APIResponse object, not a dict
+    # Just check if we have data (successful insert) or handle exceptions
+    if hasattr(resp, 'data') and resp.data:
+        return  # Success
+    else:
         raise RuntimeError(f"Supabase insert error: {resp}") 

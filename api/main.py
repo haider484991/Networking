@@ -637,8 +637,7 @@ async def delete_router(router_id: str):
 async def test_router_connection(router_id: str):
     """Test connection to a specific router."""
     try:
-        cfg = load_config()
-        router_manager = RouterManager(cfg)
+        router_manager = RouterManager()
         
         # Get router config
         client = get_client()
@@ -664,8 +663,7 @@ async def test_router_connection(router_id: str):
 async def get_router_devices(router_id: str):
     """Get all devices/queues from a specific router."""
     try:
-        cfg = load_config()
-        router_manager = RouterManager(cfg)
+        router_manager = RouterManager()
         
         # Get router config
         client = get_client()
@@ -734,8 +732,7 @@ async def delete_router_mapping(mapping_id: int):
 async def discover_network_devices():
     """Discover all devices connected to routers."""
     try:
-        cfg = load_config()
-        router_manager = RouterManager(cfg)
+        router_manager = RouterManager()
         
         # Get all active routers
         client = get_client()
