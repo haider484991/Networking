@@ -405,7 +405,7 @@ async def download_reseller_report(reseller_id: str):
         print(f"Generating report for reseller {reseller_id}")
         
         # First check if reseller exists
-            client = get_client()
+        client = get_client()
         reseller_check = client.table("resellers").select("*").eq("id", reseller_id).execute()
         if not reseller_check.data:
             raise HTTPException(status_code=404, detail=f"Reseller '{reseller_id}' not found")
