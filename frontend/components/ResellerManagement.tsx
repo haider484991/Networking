@@ -24,9 +24,17 @@ import {
   AlertDialogBody,
   AlertDialogFooter,
   Spinner,
+  Select,
 } from '@chakra-ui/react';
 import { AddIcon, EditIcon, DeleteIcon, DownloadIcon } from '@chakra-ui/icons';
 import { apiClient, Reseller, CreateResellerRequest, UpdateResellerRequest } from '../utils/api';
+
+interface Router {
+  id: string;
+  name: string;
+  host: string;
+  enabled: boolean;
+}
 
 interface ResellerManagementProps {
   resellers: Reseller[];
@@ -54,10 +62,30 @@ export default function ResellerManagement({
     name: '',
     plan_mbps: 100,
     threshold: 0.8,
-    phone: ''
+    phone: '',
+    router_id: '',
+    target_ip: ''
   });
+  const [routers, setRouters] = useState<Router[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const toast = useToast();
+
+  // Fetch available routers
+  useEffect(() => {
+    const fetchRouters = async () => {
+      try {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${API_BASE_URL}/api/routers`);
+        if (response.ok) {
+          const routerData = await response.json();
+          setRouters(routerData.routers || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch routers:', error);
+      }
+    };
+    fetchRouters();
+  }, []);
 
   // Handle initial reseller from dashboard
   useEffect(() => {
@@ -73,7 +101,9 @@ export default function ResellerManagement({
       name: '',
       plan_mbps: 100,
       threshold: 0.8,
-      phone: ''
+      phone: '',
+      router_id: '',
+      target_ip: ''
     });
     onOpen();
   };
@@ -84,7 +114,9 @@ export default function ResellerManagement({
       name: reseller.name,
       plan_mbps: reseller.plan_mbps,
       threshold: reseller.threshold,
-      phone: reseller.phone
+      phone: reseller.phone,
+      router_id: '', // Not needed for edit
+      target_ip: ''  // Not needed for edit
     });
     onOpen();
   };
@@ -108,7 +140,10 @@ export default function ResellerManagement({
           isClosable: true,
         });
       } else {
-        // Create new reseller
+        // Create new reseller - validate router fields
+        if (!formData.router_id || !formData.target_ip) {
+          throw new Error('Router and Target IP are required for new resellers');
+        }
         await apiClient.createReseller(formData as CreateResellerRequest);
         toast({
           title: 'Reseller created',
@@ -216,65 +251,108 @@ export default function ResellerManagement({
                 />
               </FormControl>
 
-              <FormControl isRequired>
-                <FormLabel>Phone</FormLabel>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="Enter phone number (e.g., +8801000000001)"
-                />
-              </FormControl>
-            </VStack>
-          </ModalBody>
+            <FormControl>
+              <FormLabel>Threshold (0.0 - 1.0)</FormLabel>
+              <Input
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={formData.threshold}
+                onChange={(e) => setFormData({ ...formData, threshold: parseFloat(e.target.value) || 0.8 })}
+                placeholder="Enter alert threshold (e.g., 0.8 for 80%)"
+              />
+            </FormControl>
 
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
+            <FormControl isRequired>
+              <FormLabel>Phone</FormLabel>
+              <Input
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="Enter phone number (e.g., +8801000000001)"
+              />
+            </FormControl>
+
+            {/* Router selection - only show for new resellers */}
+            {!editingReseller && (
+              <>
+                <FormControl isRequired>
+                  <FormLabel>Router</FormLabel>
+                  <Select
+                    placeholder="Select a router"
+                    value={formData.router_id}
+                    onChange={(e) => setFormData({ ...formData, router_id: e.target.value })}
+                  >
+                    {routers.filter(router => router.enabled).map((router) => (
+                      <option key={router.id} value={router.id}>
+                        {router.name} ({router.host})
+                      </option>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel>Target IP Address</FormLabel>
+                  <Input
+                    placeholder="e.g., 192.168.1.100"
+                    value={formData.target_ip}
+                    onChange={(e) => setFormData({ ...formData, target_ip: e.target.value })}
+                  />
+                </FormControl>
+              </>
+            )}
+          </VStack>
+        </ModalBody>
+
+        <ModalFooter>
+          <Button variant="ghost" mr={3} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button 
+            colorScheme="blue" 
+            onClick={handleSubmit}
+            isLoading={isLoading}
+            isDisabled={!editingReseller && (!formData.router_id || !formData.target_ip)}
+          >
+            {editingReseller ? 'Update' : 'Create'}
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+
+    {/* Delete Confirmation Dialog */}
+    <AlertDialog
+      isOpen={isDeleteOpen}
+      leastDestructiveRef={undefined}
+      onClose={onDeleteClose}
+    >
+      <AlertDialogOverlay>
+        <AlertDialogContent>
+          <AlertDialogHeader fontSize="lg" fontWeight="bold">
+            Delete Reseller
+          </AlertDialogHeader>
+
+          <AlertDialogBody>
+            Are you sure you want to delete {deletingReseller?.name}? This action cannot be undone.
+          </AlertDialogBody>
+
+          <AlertDialogFooter>
+            <Button onClick={onDeleteClose}>
               Cancel
             </Button>
             <Button 
-              colorScheme="blue" 
-              onClick={handleSubmit}
+              colorScheme="red" 
+              onClick={handleDelete}
+              ml={3}
               isLoading={isLoading}
             >
-              {editingReseller ? 'Update' : 'Create'}
+              Delete
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        isOpen={isDeleteOpen}
-        leastDestructiveRef={undefined}
-        onClose={onDeleteClose}
-      >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Delete Reseller
-            </AlertDialogHeader>
-
-            <AlertDialogBody>
-              Are you sure you want to delete {deletingReseller?.name}? This action cannot be undone.
-            </AlertDialogBody>
-
-            <AlertDialogFooter>
-              <Button onClick={onDeleteClose}>
-                Cancel
-              </Button>
-              <Button 
-                colorScheme="red" 
-                onClick={handleDelete}
-                ml={3}
-                isLoading={isLoading}
-              >
-                Delete
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
-    </Box>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialogOverlay>
+    </AlertDialog>
+  </Box>
   );
 }
 

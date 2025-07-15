@@ -34,6 +34,8 @@ export interface CreateResellerRequest {
   plan_mbps: number;
   threshold?: number;
   phone: string;
+  router_id: string;
+  target_ip: string;
 }
 
 export interface UpdateResellerRequest {
