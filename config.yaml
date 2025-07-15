@@ -22,4 +22,57 @@ alert:
   channel: whatsapp
   twilio:
     from_number: "whatsapp:+14155238886"
-    to_number: "whatsapp:+8801000000000" 
+    to_number: "whatsapp:+8801000000000"
+
+# ---------------------------
+# NTTN Link Monitoring
+# ---------------------------
+nttn:
+  enabled: true
+  monitoring_interval: 300  # 5 minutes
+  alert_cooldown: 300       # 5 minutes between alerts
+  links:
+    - id: "nttn_main"
+      name: "NTTN Main Link"
+      device_type: "mikrotik"
+      device_ip: "103.106.119.201"
+      total_capacity_mbps: 1000
+      threshold_mbps: 950
+      vlans:
+        - vlan_id: 10
+          capacity_mbps: 200
+          interface_name: "vlan10"
+        - vlan_id: 20
+          capacity_mbps: 200
+          interface_name: "vlan20"
+        - vlan_id: 30
+          capacity_mbps: 200
+          interface_name: "vlan30"
+        - vlan_id: 40
+          capacity_mbps: 200
+          interface_name: "vlan40"
+        - vlan_id: 50
+          capacity_mbps: 200
+          interface_name: "vlan50"
+
+# ---------------------------
+# Router API Configuration
+# ---------------------------
+router_api:
+  enabled: true
+  routers:
+    mikrotik_main:
+      type: "mikrotik"
+      host: "103.106.119.201"
+      port: 8728
+      use_ssl: false
+      # Credentials loaded from environment variables
+
+# ---------------------------
+# Bandwidth Manager
+# ---------------------------
+bandwidth_manager:
+  enabled: true
+  check_interval: 60        # Check for plan changes every minute
+  auto_update: true         # Automatically update router limits
+  retry_interval: 1800      # Retry failed updates after 30 minutes 

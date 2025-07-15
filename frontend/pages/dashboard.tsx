@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import {
   Box,
   Heading,
@@ -52,6 +53,8 @@ import ResellerManagement, { ResellerActionButtons } from '../components/Reselle
 import ResellerLeaderboard from '../components/ResellerLeaderboard';
 import BandwidthChart from '../components/BandwidthChart';
 import NTTNChart from '../components/NTTNChart';
+import NTTNManagement from '../components/NTTNManagement';
+import { AlertToast } from '../components/AlertToast';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -241,11 +244,15 @@ export default function Dashboard() {
               ISP Bandwidth Tracker
             </Heading>
             <HStack spacing={6} fontSize="sm">
-              <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Dashboard</Text>
+              <Link href="/dashboard">
+                <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Dashboard</Text>
+              </Link>
               <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Devices</Text>
               <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Resellers</Text>
               <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Alerts</Text>
-              <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Settings</Text>
+              <Link href="/settings">
+                <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Settings</Text>
+              </Link>
             </HStack>
           </Flex>
         </Container>
@@ -334,6 +341,7 @@ export default function Dashboard() {
             <Tab>Dashboard View</Tab>
             <Tab>Manage Resellers</Tab>
             <Tab>Leaderboard</Tab>
+            <Tab>NTTN Links</Tab>
           </TabList>
 
           <TabPanels>
@@ -463,6 +471,11 @@ export default function Dashboard() {
             <TabPanel p={0}>
               <ResellerLeaderboard />
             </TabPanel>
+
+                         {/* NTTN Links Tab */}
+             <TabPanel p={0}>
+               <NTTNManagement />
+             </TabPanel>
           </TabPanels>
         </Tabs>
       </Container>

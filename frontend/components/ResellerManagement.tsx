@@ -92,7 +92,7 @@ export default function ResellerManagement({
     setDeletingReseller(reseller);
     onDeleteOpen();
   };
-
+      
   const handleSubmit = async () => {
     setIsLoading(true);
     try {

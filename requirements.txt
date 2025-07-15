@@ -11,4 +11,6 @@ pydantic==2.5.0
 reportlab==4.0.4
 matplotlib==3.7.2
 pandas==2.0.3
-numpy==1.24.3 
+numpy==1.24.3
+librouteros==3.2.0
+cryptography==41.0.7 
