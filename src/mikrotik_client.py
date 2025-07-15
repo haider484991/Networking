@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 
 import librouteros
-from librouteros.exceptions import RouterOsApiParsingError, TrapError
+from librouteros.exceptions import TrapError
 from .supabase_client import get_client, insert_row
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class MikroTikRouterClient:
 
             # Convert generator to list for easier handling
             return list(result)
-        except (RouterOsApiParsingError, TrapError) as exc:
+        except TrapError as exc:
             logger.error("RouterOS API command failed: %s", exc)
             raise
         except Exception as exc:

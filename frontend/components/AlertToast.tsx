@@ -33,15 +33,15 @@ export function AlertToast() {
             const statusType = alert.level === 'RED' ? 'error' : 
                              alert.level === 'YELLOW' ? 'warning' : 
                              alert.level === 'LINK_DOWN' ? 'error' : 'info';
-            
-            toast({
-              title: `${alert.level} Alert`,
-              description: alert.message,
+        
+        toast({
+          title: `${alert.level} Alert`,
+          description: alert.message,
               status: statusType,
-              duration: 5000,
-              isClosable: true,
-              position: 'top-right',
-            });
+          duration: 5000,
+          isClosable: true,
+          position: 'top-right',
+        });
           });
           
           if (newAlerts.length > 0) {
