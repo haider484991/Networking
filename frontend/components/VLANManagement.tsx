@@ -102,6 +102,8 @@ export default function VLANManagement({ routerId, routerName }: VLANManagementP
               <Th>Interface Name</Th>
               <Th>Capacity (Mbps)</Th>
               <Th>Enabled</Th>
+              <Th>RX Bytes</Th>
+              <Th>TX Bytes</Th>
               <Th>Description</Th>
             </Tr>
           </Thead>
@@ -119,6 +121,8 @@ export default function VLANManagement({ routerId, routerName }: VLANManagementP
                   <Td>{vlan.interface_name || '-'}</Td>
                   <Td>{vlan.capacity_mbps}</Td>
                   <Td>{vlan.enabled ? 'Yes' : 'No'}</Td>
+                  <Td>{vlan.rx_bytes || '-'}</Td>
+                  <Td>{vlan.tx_bytes || '-'}</Td>
                   <Td>{vlan.description || '-'}</Td>
                 </Tr>
               ))

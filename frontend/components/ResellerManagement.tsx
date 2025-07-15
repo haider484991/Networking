@@ -312,9 +312,14 @@ export default function ResellerManagement({
             colorScheme="blue" 
             onClick={handleSubmit}
             isLoading={isLoading}
-            isDisabled={!editingReseller && (!formData.router_id || !formData.target_ip)}
+            isDisabled={
+              isLoading ||
+              !formData.name.trim() ||
+              !formData.plan_mbps ||
+              (!editingReseller && (!formData.router_id || !formData.target_ip))
+            }
           >
-            {editingReseller ? 'Update' : 'Create'}
+            {editingReseller ? 'Save' : 'Create'}
           </Button>
         </ModalFooter>
       </ModalContent>

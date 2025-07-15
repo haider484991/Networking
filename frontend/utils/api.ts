@@ -28,6 +28,8 @@ export interface VLAN {
   interface_name?: string;
   capacity_mbps: number;
   enabled?: boolean;
+  rx_bytes?: string;
+  tx_bytes?: string;
   description?: string;
 }
 
@@ -69,7 +71,7 @@ class ApiClient {
   }
 
   async getResellers(): Promise<Reseller[]> {
-    return this.request<Reseller[]>('/resellers');
+    return this.request<Reseller[]>('/api/resellers');
   }
 
   async getReseller(id: string): Promise<Reseller> {
