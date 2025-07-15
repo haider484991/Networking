@@ -297,14 +297,14 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
             <Button
               leftIcon={<LinkIcon />}
               colorScheme="green"
-              onClick={() => openMappingModal()}
+            onClick={() => openMappingModal()}
             >
               Add Mapping
             </Button>
             <Button
               leftIcon={<AddIcon />}
               colorScheme="blue"
-              onClick={() => openResellerModal()}
+            onClick={() => openResellerModal()}
             >
               Add Reseller
             </Button>
@@ -312,16 +312,16 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
         </HStack>
 
         <Grid templateColumns={{ base: '1fr', lg: 'repeat(2, 1fr)' }} gap={6} mb={6}>
-          {/* Resellers */}
+        {/* Resellers */}
           <GridItem>
             <Card bg={cardBg} boxShadow="md">
               <CardBody>
                 <Heading size="md" mb={2}>Resellers ({resellers.length})</Heading>
                 <Divider mb={2} />
                 <VStack align="stretch" spacing={2} maxH="96" overflowY="auto">
-                  {resellers.map((reseller) => {
-                    const resellerMappings = getResellerMappings(reseller.id);
-                    return (
+            {resellers.map((reseller) => {
+              const resellerMappings = getResellerMappings(reseller.id);
+              return (
                       <Box key={reseller.id} p={2} borderRadius="md" bg="gray.50">
                         <HStack justifyContent="space-between" alignItems="center">
                           <VStack align="stretch" spacing={1}>
@@ -333,17 +333,17 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
                             </HStack>
                             <Text fontSize="xs" color="gray.500">ID: {reseller.id}</Text>
                             <Text fontSize="xs" color="gray.500">
-                              {resellerMappings.length} router{resellerMappings.length !== 1 ? 's' : ''} assigned
+                        {resellerMappings.length} router{resellerMappings.length !== 1 ? 's' : ''} assigned
                             </Text>
-                            {resellerMappings.length > 0 && (
+                      {resellerMappings.length > 0 && (
                               <VStack align="stretch" spacing={1} mt={1}>
-                                {resellerMappings.map((mapping) => (
+                          {resellerMappings.map((mapping) => (
                                   <Box key={mapping.id} p={1} borderRadius="sm" bg="gray.100" fontSize="xs" color="gray.600">
-                                    {mapping.router_configs?.name} → {mapping.target_ip}
+                              {mapping.router_configs?.name} → {mapping.target_ip}
                                   </Box>
-                                ))}
+                          ))}
                               </VStack>
-                            )}
+                      )}
                           </VStack>
                           <HStack spacing={1}>
                             <IconButton
@@ -351,61 +351,61 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
                               icon={<LinkIcon />}
                               colorScheme="green"
                               size="sm"
-                              onClick={() => openMappingModal(reseller.id)}
+                        onClick={() => openMappingModal(reseller.id)}
                             />
                             <IconButton
                               aria-label="Edit Reseller"
                               icon={<EditIcon />}
                               colorScheme="yellow"
                               size="sm"
-                              onClick={() => openResellerModal(reseller)}
+                        onClick={() => openResellerModal(reseller)}
                             />
                             <IconButton
                               aria-label="Delete Reseller"
                               icon={<DeleteIcon />}
                               colorScheme="red"
                               size="sm"
-                              onClick={() => handleDeleteReseller(reseller.id)}
+                        onClick={() => handleDeleteReseller(reseller.id)}
                             />
                           </HStack>
                         </HStack>
                       </Box>
-                    );
-                  })}
-                  {resellers.length === 0 && (
+              );
+            })}
+            {resellers.length === 0 && (
                     <Box textAlign="center" py={8} color="gray.500">
-                      No resellers found. Add your first reseller to get started.
+                No resellers found. Add your first reseller to get started.
                     </Box>
-                  )}
+            )}
                 </VStack>
               </CardBody>
             </Card>
           </GridItem>
 
-          {/* Router Mappings */}
+        {/* Router Mappings */}
           <GridItem>
             <Card bg={cardBg} boxShadow="md">
               <CardBody>
                 <Heading size="md" mb={2}>Router Mappings ({mappings.length})</Heading>
                 <Divider mb={2} />
                 <VStack align="stretch" spacing={2} maxH="96" overflowY="auto">
-                  {mappings.map((mapping) => (
+            {mappings.map((mapping) => (
                     <Box key={mapping.id} p={2} borderRadius="md" bg="gray.50">
                       <HStack justifyContent="space-between" alignItems="center">
                         <VStack align="stretch" spacing={1}>
                           <HStack>
                             <Badge colorScheme="blue">
-                              {mapping.resellers?.name || mapping.reseller_id}
+                        {mapping.resellers?.name || mapping.reseller_id}
                             </Badge>
                             <Text fontSize="sm" color="gray.400">→</Text>
                             <Text fontSize="sm" fontWeight="medium" color="gray.600">
-                              {mapping.router_configs?.name || mapping.router_id}
+                        {mapping.router_configs?.name || mapping.router_id}
                             </Text>
                           </HStack>
                           <Text fontSize="sm" color="gray.500">IP: {mapping.target_ip}</Text>
                           <Text fontSize="sm" color="gray.500">Queue: {mapping.queue_name}</Text>
                           <Text fontSize="xs" color="gray.400">
-                            Router: {mapping.router_configs?.host}
+                      Router: {mapping.router_configs?.host}
                           </Text>
                         </VStack>
                         <IconButton
@@ -413,23 +413,23 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
                           icon={<DeleteIcon />}
                           colorScheme="red"
                           size="sm"
-                          onClick={() => handleDeleteMapping(mapping.id)}
+                    onClick={() => handleDeleteMapping(mapping.id)}
                         />
                       </HStack>
                     </Box>
-                  ))}
-                  {mappings.length === 0 && (
+            ))}
+            {mappings.length === 0 && (
                     <Box textAlign="center" py={8} color="gray.500">
-                      No router mappings found. Create mappings to assign resellers to routers.
+                No router mappings found. Create mappings to assign resellers to routers.
                     </Box>
-                  )}
+            )}
                 </VStack>
               </CardBody>
             </Card>
           </GridItem>
         </Grid>
 
-        {/* Summary Stats */}
+      {/* Summary Stats */}
         <Grid templateColumns={{ base: '1fr', md: 'repeat(3, 1fr)' }} gap={4} mt={6}>
           <GridItem>
             <Card bg={cardBg} boxShadow="md">
@@ -471,7 +471,7 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
                   <VStack align="stretch" spacing={0}>
                     <Text fontSize="sm" color="gray.600">Total Bandwidth</Text>
                     <Text fontSize="2xl" color="green.600" fontWeight="bold">
-                      {resellers.reduce((sum, r) => sum + r.plan_mbps, 0)} Mbps
+                {resellers.reduce((sum, r) => sum + r.plan_mbps, 0)} Mbps
                     </Text>
                   </VStack>
                 </HStack>
@@ -486,7 +486,7 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            {editingReseller ? 'Edit Reseller' : 'Add New Reseller'}
+              {editingReseller ? 'Edit Reseller' : 'Add New Reseller'}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -524,7 +524,7 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
           <ModalFooter>
             <Button variant="ghost" onClick={onResellerModalClose}>Cancel</Button>
             <Button colorScheme="blue" onClick={handleResellerSubmit}>
-              {editingReseller ? 'Update' : 'Create'}
+                  {editingReseller ? 'Update' : 'Create'}
             </Button>
           </ModalFooter>
         </ModalContent>
@@ -592,7 +592,7 @@ const ResellerManagement: React.FC<ResellerManagementProps> = ({ onAlert }) => {
           <ModalFooter>
             <Button variant="ghost" onClick={onMappingModalClose}>Cancel</Button>
             <Button colorScheme="green" onClick={handleMappingSubmit}>
-              Create Mapping
+                  Create Mapping
             </Button>
           </ModalFooter>
         </ModalContent>

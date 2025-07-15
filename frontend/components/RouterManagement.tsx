@@ -1,4 +1,44 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  VStack,
+  HStack,
+  Heading,
+  Text,
+  Button,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Badge,
+  IconButton,
+  Card,
+  CardBody,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Input,
+  Select,
+  Switch,
+  useDisclosure,
+  useToast,
+  Spinner,
+  Center,
+  Grid,
+  GridItem,
+  useColorModeValue,
+  Container,
+  Divider
+} from '@chakra-ui/react';
+import { AddIcon, EditIcon, DeleteIcon, SettingsIcon } from '@chakra-ui/icons';
 
 interface Router {
   id: string;
@@ -33,9 +73,9 @@ interface RouterManagementProps {
 const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
   const [routers, setRouters] = useState<Router[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingRouter, setEditingRouter] = useState<Router | null>(null);
   const [testingConnection, setTestingConnection] = useState<string | null>(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [editingRouter, setEditingRouter] = useState<Router | null>(null);
   const [formData, setFormData] = useState<RouterFormData>({
     id: '',
     name: '',
@@ -47,6 +87,10 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
     device_type: 'mikrotik',
     enabled: true
   });
+
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const toast = useToast();
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -86,20 +130,34 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
       const result = await response.json();
 
       if (response.ok) {
-        onAlert(
-          editingRouter ? 'Router updated successfully' : 'Router created successfully',
-          'success'
-        );
-        setShowAddModal(false);
+        toast({
+          title: editingRouter ? 'Router updated successfully' : 'Router created successfully',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+        onClose();
         setEditingRouter(null);
         resetForm();
         fetchRouters();
       } else {
-        onAlert(result.detail || 'Operation failed', 'error');
+        toast({
+          title: 'Error',
+          description: result.detail || 'Operation failed',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
       }
     } catch (error) {
       console.error('Error saving router:', error);
-      onAlert('Failed to save router', 'error');
+      toast({
+        title: 'Error',
+        description: 'Failed to save router',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
     }
   };
 
@@ -112,15 +170,32 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
       });
 
       if (response.ok) {
-        onAlert('Router deleted successfully', 'success');
+        toast({
+          title: 'Router deleted successfully',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
         fetchRouters();
       } else {
         const result = await response.json();
-        onAlert(result.detail || 'Failed to delete router', 'error');
+        toast({
+          title: 'Error',
+          description: result.detail || 'Failed to delete router',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
       }
     } catch (error) {
       console.error('Error deleting router:', error);
-      onAlert('Failed to delete router', 'error');
+      toast({
+        title: 'Error',
+        description: 'Failed to delete router',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
     }
   };
 
@@ -131,13 +206,30 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
       const result = await response.json();
       
       if (result.success) {
-        onAlert('Connection successful!', 'success');
+        toast({
+          title: 'Connection successful!',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
       } else {
-        onAlert(`Connection failed: ${result.message}`, 'error');
+        toast({
+          title: 'Connection failed',
+          description: result.message,
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
       }
     } catch (error) {
       console.error('Error testing connection:', error);
-      onAlert('Failed to test connection', 'error');
+      toast({
+        title: 'Error',
+        description: 'Failed to test connection',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
     } finally {
       setTestingConnection(null);
     }
@@ -170,273 +262,299 @@ const RouterManagement: React.FC<RouterManagementProps> = ({ onAlert }) => {
       device_type: router.device_type,
       enabled: router.enabled
     });
-    setShowAddModal(true);
+    onOpen();
   };
 
   const openAddModal = () => {
     setEditingRouter(null);
     resetForm();
-    setShowAddModal(true);
+    onOpen();
   };
 
   if (loading) {
     return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading routers...</p>
-      </div>
+      <Center h="200px">
+        <VStack spacing={4}>
+          <Spinner size="xl" color="blue.500" thickness="4px" />
+          <Text color="gray.500" fontSize="lg">Loading routers...</Text>
+        </VStack>
+      </Center>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Router Management</h2>
-          <p className="text-gray-600">Configure and manage MikroTik router connections</p>
-        </div>
-        <button
-          onClick={openAddModal}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <span>+</span>
-          <span>Add Router</span>
-        </button>
-      </div>
+    <Container maxW="container.xl" p={0}>
+      <VStack spacing={6} align="stretch">
+        {/* Header */}
+        <HStack justify="space-between" align="center">
+          <VStack align="flex-start" spacing={1}>
+            <Heading size="lg" color="gray.900">Router Management</Heading>
+            <Text color="gray.600">Configure and manage MikroTik router connections</Text>
+          </VStack>
+          <Button
+            leftIcon={<AddIcon />}
+            colorScheme="blue"
+            onClick={openAddModal}
+            size="md"
+          >
+            Add Router
+          </Button>
+        </HStack>
 
-      {/* Routers Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Router Details
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Connection
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {routers.map((router) => (
-              <tr key={router.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">{router.name}</div>
-                    <div className="text-sm text-gray-500">ID: {router.id}</div>
-                    <div className="text-sm text-gray-500">{router.device_type}</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div>
-                    <div className="text-sm text-gray-900">{router.host}:{router.port}</div>
-                    <div className="text-sm text-gray-500">
-                      {router.use_ssl ? '🔒 SSL' : '🔓 No SSL'} | User: {router.username}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    router.enabled 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {router.enabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                  <button
-                    onClick={() => testConnection(router.id)}
-                    disabled={testingConnection === router.id}
-                    className="text-blue-600 hover:text-blue-900 disabled:text-gray-400"
-                  >
-                    {testingConnection === router.id ? '⏳' : '🔌'} Test
-                  </button>
-                  <button
-                    onClick={() => openEditModal(router)}
-                    className="text-yellow-600 hover:text-yellow-900"
-                  >
-                    ✏️ Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(router.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    🗑️ Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        
-        {routers.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            No routers configured. Add your first router to get started.
-          </div>
-        )}
-      </div>
+        {/* Routers Table */}
+        <Card bg={cardBg} boxShadow="lg" borderRadius="xl">
+          <CardBody p={0}>
+            {routers.length === 0 ? (
+              <Center py={12}>
+                <VStack spacing={4}>
+                  <Text color="gray.500" fontSize="lg">No routers configured</Text>
+                  <Text color="gray.400" fontSize="sm">Add your first router to get started</Text>
+                  <Button leftIcon={<AddIcon />} colorScheme="blue" onClick={openAddModal}>
+                    Add Your First Router
+                  </Button>
+                </VStack>
+              </Center>
+            ) : (
+              <Table variant="simple">
+                <Thead bg={useColorModeValue('gray.50', 'gray.700')}>
+                  <Tr>
+                    <Th color="gray.600" fontSize="xs" fontWeight="semibold" textTransform="uppercase" letterSpacing="wider">
+                      Router Details
+                    </Th>
+                    <Th color="gray.600" fontSize="xs" fontWeight="semibold" textTransform="uppercase" letterSpacing="wider">
+                      Connection
+                    </Th>
+                    <Th color="gray.600" fontSize="xs" fontWeight="semibold" textTransform="uppercase" letterSpacing="wider">
+                      Status
+                    </Th>
+                    <Th color="gray.600" fontSize="xs" fontWeight="semibold" textTransform="uppercase" letterSpacing="wider">
+                      Actions
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {routers.map((router) => (
+                    <Tr key={router.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                      <Td py={4}>
+                        <VStack align="flex-start" spacing={1}>
+                          <Text fontWeight="semibold" color="gray.900">{router.name}</Text>
+                          <Text fontSize="sm" color="gray.500">ID: {router.id}</Text>
+                          <Badge colorScheme="blue" variant="subtle" size="sm">
+                            {router.device_type}
+                          </Badge>
+                        </VStack>
+                      </Td>
+                      <Td py={4}>
+                        <VStack align="flex-start" spacing={1}>
+                          <Text fontWeight="medium" color="gray.900">
+                            {router.host}:{router.port}
+                          </Text>
+                          <HStack spacing={2}>
+                            <Badge colorScheme={router.use_ssl ? 'green' : 'orange'} variant="subtle">
+                              {router.use_ssl ? '🔒 SSL' : '🔓 No SSL'}
+                            </Badge>
+                            <Text fontSize="sm" color="gray.500">
+                              User: {router.username}
+                            </Text>
+                          </HStack>
+                        </VStack>
+                      </Td>
+                      <Td py={4}>
+                        <Badge
+                          colorScheme={router.enabled ? 'green' : 'red'}
+                          variant="solid"
+                          borderRadius="full"
+                          px={3}
+                          py={1}
+                        >
+                          {router.enabled ? 'Enabled' : 'Disabled'}
+                        </Badge>
+                      </Td>
+                      <Td py={4}>
+                        <HStack spacing={2}>
+                          <IconButton
+                            aria-label="Test Connection"
+                            icon={testingConnection === router.id ? <Spinner size="sm" /> : <SettingsIcon />}
+                            colorScheme="blue"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => testConnection(router.id)}
+                            isDisabled={testingConnection === router.id}
+                            title="Test Connection"
+                          />
+                          <IconButton
+                            aria-label="Edit Router"
+                            icon={<EditIcon />}
+                            colorScheme="yellow"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditModal(router)}
+                            title="Edit Router"
+                          />
+                          <IconButton
+                            aria-label="Delete Router"
+                            icon={<DeleteIcon />}
+                            colorScheme="red"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(router.id)}
+                            title="Delete Router"
+                          />
+                        </HStack>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            )}
+          </CardBody>
+        </Card>
 
-      {/* Add/Edit Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-screen overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">
+        {/* Add/Edit Modal */}
+        <Modal isOpen={isOpen} onClose={onClose} size="lg">
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>
               {editingRouter ? 'Edit Router' : 'Add New Router'}
-            </h3>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Router ID
-                </label>
-                <input
-                  type="text"
-                  value={formData.id}
-                  onChange={(e) => setFormData({...formData, id: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  required
-                  disabled={!!editingRouter}
-                />
-              </div>
+            </ModalHeader>
+            <ModalCloseButton />
+            <form onSubmit={handleSubmit}>
+              <ModalBody>
+                <VStack spacing={4}>
+                  <Grid templateColumns="repeat(2, 1fr)" gap={4} w="full">
+                    <GridItem>
+                      <FormControl isRequired>
+                        <FormLabel>Router ID</FormLabel>
+                        <Input
+                          value={formData.id}
+                          onChange={(e) => setFormData({...formData, id: e.target.value})}
+                          placeholder="mikrotik_main"
+                          isDisabled={!!editingRouter}
+                        />
+                      </FormControl>
+                    </GridItem>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  required
-                />
-              </div>
+                    <GridItem>
+                      <FormControl isRequired>
+                        <FormLabel>Name</FormLabel>
+                        <Input
+                          value={formData.name}
+                          onChange={(e) => setFormData({...formData, name: e.target.value})}
+                          placeholder="Main MikroTik Router"
+                        />
+                      </FormControl>
+                    </GridItem>
+                  </Grid>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Host/IP Address
-                </label>
-                <input
-                  type="text"
-                  value={formData.host}
-                  onChange={(e) => setFormData({...formData, host: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  required
-                />
-              </div>
+                  <Grid templateColumns="repeat(2, 1fr)" gap={4} w="full">
+                    <GridItem>
+                      <FormControl isRequired>
+                        <FormLabel>Host/IP Address</FormLabel>
+                        <Input
+                          value={formData.host}
+                          onChange={(e) => setFormData({...formData, host: e.target.value})}
+                          placeholder="192.168.1.1"
+                        />
+                      </FormControl>
+                    </GridItem>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.username}
-                    onChange={(e) => setFormData({...formData, username: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    required
-                  />
-                </div>
+                    <GridItem>
+                      <FormControl isRequired>
+                        <FormLabel>Port</FormLabel>
+                        <Input
+                          type="number"
+                          value={formData.port}
+                          onChange={(e) => setFormData({...formData, port: parseInt(e.target.value)})}
+                          placeholder="8728"
+                        />
+                      </FormControl>
+                    </GridItem>
+                  </Grid>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({...formData, password: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    required
-                  />
-                </div>
-              </div>
+                  <Grid templateColumns="repeat(2, 1fr)" gap={4} w="full">
+                    <GridItem>
+                      <FormControl isRequired>
+                        <FormLabel>Username</FormLabel>
+                        <Input
+                          value={formData.username}
+                          onChange={(e) => setFormData({...formData, username: e.target.value})}
+                          placeholder="admin"
+                        />
+                      </FormControl>
+                    </GridItem>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Port
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.port}
-                    onChange={(e) => setFormData({...formData, port: parseInt(e.target.value)})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    required
-                  />
-                </div>
+                    <GridItem>
+                      <FormControl isRequired>
+                        <FormLabel>Password</FormLabel>
+                        <Input
+                          type="password"
+                          value={formData.password}
+                          onChange={(e) => setFormData({...formData, password: e.target.value})}
+                          placeholder="Enter password"
+                        />
+                      </FormControl>
+                    </GridItem>
+                  </Grid>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Device Type
-                  </label>
-                  <select
-                    value={formData.device_type}
-                    onChange={(e) => setFormData({...formData, device_type: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  >
-                    <option value="mikrotik">MikroTik</option>
-                    <option value="cisco">Cisco</option>
-                    <option value="juniper">Juniper</option>
-                  </select>
-                </div>
-              </div>
+                  <FormControl>
+                    <FormLabel>Device Type</FormLabel>
+                    <Select
+                      value={formData.device_type}
+                      onChange={(e) => setFormData({...formData, device_type: e.target.value})}
+                    >
+                      <option value="mikrotik">MikroTik</option>
+                      <option value="cisco">Cisco</option>
+                      <option value="juniper">Juniper</option>
+                    </Select>
+                  </FormControl>
 
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.use_ssl}
-                    onChange={(e) => setFormData({...formData, use_ssl: e.target.checked})}
-                    className="mr-2"
-                  />
-                  Use SSL
-                </label>
+                  <Grid templateColumns="repeat(2, 1fr)" gap={4} w="full">
+                    <GridItem>
+                      <FormControl display="flex" alignItems="center">
+                        <FormLabel mb={0}>Use SSL</FormLabel>
+                        <Switch
+                          isChecked={formData.use_ssl}
+                          onChange={(e) => setFormData({...formData, use_ssl: e.target.checked})}
+                          colorScheme="blue"
+                        />
+                      </FormControl>
+                    </GridItem>
 
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.enabled}
-                    onChange={(e) => setFormData({...formData, enabled: e.target.checked})}
-                    className="mr-2"
-                  />
-                  Enabled
-                </label>
-              </div>
+                    <GridItem>
+                      <FormControl display="flex" alignItems="center">
+                        <FormLabel mb={0}>Enabled</FormLabel>
+                        <Switch
+                          isChecked={formData.enabled}
+                          onChange={(e) => setFormData({...formData, enabled: e.target.checked})}
+                          colorScheme="green"
+                        />
+                      </FormControl>
+                    </GridItem>
+                  </Grid>
+                </VStack>
+              </ModalBody>
 
-              <div className="flex justify-end space-x-4 pt-4">
-                <button
-                  type="button"
+              <ModalFooter>
+                <Button
+                  variant="outline"
+                  mr={3}
                   onClick={() => {
-                    setShowAddModal(false);
+                    onClose();
                     setEditingRouter(null);
                     resetForm();
                   }}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
+                </Button>
+                <Button type="submit" colorScheme="blue">
                   {editingRouter ? 'Update' : 'Create'}
-                </button>
-              </div>
+                </Button>
+              </ModalFooter>
             </form>
-          </div>
-        </div>
-      )}
-    </div>
+          </ModalContent>
+        </Modal>
+      </VStack>
+    </Container>
   );
 };
 
