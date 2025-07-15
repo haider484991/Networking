@@ -798,7 +798,7 @@ async def discover_network_devices():
                     "status": "online",
                     "device_count": len(devices)
                 })
-    except Exception as e:
+            except Exception as e:
                 router_statuses.append({
                     "router_id": router_config["id"],
                     "name": router_config["name"],
