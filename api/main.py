@@ -669,7 +669,7 @@ async def delete_router(router_id: str):
         if not result.data:
             raise HTTPException(status_code=404, detail="Router not found")
         return {"message": "Router deleted successfully"}
-            except Exception as e:
+    except Exception as e:
         print(f"Error deleting router: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
