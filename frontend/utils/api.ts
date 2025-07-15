@@ -71,31 +71,36 @@ class ApiClient {
   }
 
   async getResellers(): Promise<Reseller[]> {
-    return this.request<Reseller[]>('/api/resellers');
+    try {
+      return await this.request<Reseller[]>('/api/resellers');
+    } catch (error) {
+      console.error('Error fetching resellers:', error);
+      throw error;
+    }
   }
 
   async getReseller(id: string): Promise<Reseller> {
-    return this.request<Reseller>(`/resellers/${id}`);
+    return this.request<Reseller>(`/api/resellers/${id}`);
   }
 
   async getResellerUsage(id: string, hours: number = 24): Promise<UsagePoint[]> {
-    return this.request<UsagePoint[]>(`/resellers/${id}/usage?hours=${hours}`);
+    return this.request<UsagePoint[]>(`/api/resellers/${id}/usage?hours=${hours}`);
   }
 
   async getAlerts(limit: number = 50): Promise<Alert[]> {
-    return this.request<Alert[]>(`/alerts?limit=${limit}`);
+    return this.request<Alert[]>(`/api/alerts?limit=${limit}`);
   }
 
   async getResellerAlerts(id: string, limit: number = 20): Promise<Alert[]> {
-    return this.request<Alert[]>(`/resellers/${id}/alerts?limit=${limit}`);
+    return this.request<Alert[]>(`/api/resellers/${id}/alerts?limit=${limit}`);
   }
 
   async getLinkStates(): Promise<LinkState[]> {
-    return this.request<LinkState[]>('/link-state');
+    return this.request<LinkState[]>('/api/link-states');
   }
 
   async createReseller(data: CreateResellerRequest): Promise<Reseller> {
-    const response = await fetch(`${this.baseUrl}/resellers`, {
+    const response = await fetch(`${this.baseUrl}/api/resellers`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -104,14 +109,25 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to create reseller: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Create reseller error response:', errorText);
+      let errorMessage = `Failed to create reseller: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+      } catch (e) {
+        // Use default error message if parsing fails
+      }
+      throw new Error(errorMessage);
     }
 
     return response.json();
   }
 
   async updateReseller(id: string, data: UpdateResellerRequest): Promise<Reseller> {
-    const response = await fetch(`${this.baseUrl}/resellers/${id}`, {
+    const response = await fetch(`${this.baseUrl}/api/resellers/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -120,7 +136,18 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to update reseller: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Update reseller error response:', errorText);
+      let errorMessage = `Failed to update reseller: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+      } catch (e) {
+        // Use default error message if parsing fails
+      }
+      throw new Error(errorMessage);
     }
 
     return response.json();
@@ -144,12 +171,23 @@ class ApiClient {
   }
 
   async deleteReseller(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/resellers/${id}`, {
+    const response = await fetch(`${this.baseUrl}/api/resellers/${id}`, {
       method: 'DELETE',
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to delete reseller: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Delete reseller error response:', errorText);
+      let errorMessage = `Failed to delete reseller: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+      } catch (e) {
+        // Use default error message if parsing fails
+      }
+      throw new Error(errorMessage);
     }
   }
 }

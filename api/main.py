@@ -285,6 +285,7 @@ async def create_reseller(request: CreateResellerRequest):
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 @app.get("/resellers/{reseller_id}", response_model=Reseller)
+@app.get("/api/resellers/{reseller_id}", response_model=Reseller)
 async def get_reseller(reseller_id: str):
     """Get a specific reseller from database."""
     try:
@@ -316,6 +317,7 @@ async def get_reseller(reseller_id: str):
 
 
 @app.put("/resellers/{reseller_id}", response_model=Reseller)
+@app.put("/api/resellers/{reseller_id}", response_model=Reseller)
 async def update_reseller(reseller_id: str, request: UpdateResellerRequest):
     """Update an existing reseller in database."""
     try:
@@ -363,6 +365,7 @@ async def update_reseller(reseller_id: str, request: UpdateResellerRequest):
         raise HTTPException(status_code=500, detail=f"Failed to update reseller: {str(e)}")
 
 @app.delete("/resellers/{reseller_id}")
+@app.delete("/api/resellers/{reseller_id}")
 async def delete_reseller(reseller_id: str):
     """Delete a reseller from database."""
     try:
@@ -399,6 +402,7 @@ async def delete_reseller(reseller_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to delete reseller: {str(e)}")
 
 @app.get("/resellers/{reseller_id}/usage", response_model=List[UsagePoint])
+@app.get("/api/resellers/{reseller_id}/usage", response_model=List[UsagePoint])
 async def get_reseller_usage(reseller_id: str, hours: int = 24):
     """Get reseller usage from database for the last N hours."""
     try:
@@ -417,6 +421,7 @@ async def get_reseller_usage(reseller_id: str, hours: int = 24):
         raise HTTPException(status_code=500, detail=f"Failed to get usage data: {str(e)}")
 
 @app.get("/alerts", response_model=List[Alert])
+@app.get("/api/alerts", response_model=List[Alert])
 async def get_alerts(limit: int = 50):
     """Get recent alerts from database."""
     try:
@@ -428,6 +433,7 @@ async def get_alerts(limit: int = 50):
         raise HTTPException(status_code=500, detail=f"Failed to fetch alerts: {str(e)}")
 
 @app.get("/resellers/{reseller_id}/alerts", response_model=List[Alert])
+@app.get("/api/resellers/{reseller_id}/alerts", response_model=List[Alert])
 async def get_reseller_alerts(reseller_id: str, limit: int = 10):
     """Get alerts for a specific reseller from database."""
     try:
@@ -439,6 +445,7 @@ async def get_reseller_alerts(reseller_id: str, limit: int = 10):
         raise HTTPException(status_code=500, detail=f"Failed to fetch reseller alerts: {str(e)}")
 
 @app.get("/link-state", response_model=List[LinkState])
+@app.get("/api/link-states", response_model=List[LinkState])
 async def get_link_states():
     """Get current link states for all resellers from database."""
     try:
