@@ -230,17 +230,10 @@ async def create_reseller(request: CreateResellerRequest):
             
         print(f"Creating reseller with data: {request.dict()}")
 
-        # 1. Check if router exists and is not already mapped
+        # 1. Check if router exists
         router_response = client.table("router_configs").select("id").eq("id", request.router_id).execute()
         if not router_response.data:
             raise HTTPException(status_code=404, detail=f"Router with ID '{request.router_id}' not found.")
-
-        mapping_response = client.table("reseller_router_mapping").select("reseller_id").eq("router_id", request.router_id).execute()
-        if mapping_response.data:
-            # Note: This logic assumes one router per reseller. If multiple resellers can map to one router, this needs adjustment.
-            # For now, we enforce a unique router mapping.
-            existing_reseller_id = mapping_response.data[0]['reseller_id']
-            raise HTTPException(status_code=409, detail=f"Router '{request.router_id}' is already mapped to reseller '{existing_reseller_id}'.")
 
         # 2. Create the reseller
         new_reseller_id = f"r{random.randint(1000, 9999)}" # Simple unique ID

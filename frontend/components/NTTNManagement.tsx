@@ -69,6 +69,17 @@ interface NTTNAlert {
   whatsapp_sent: boolean;
 }
 
+interface NTTNVlan {
+  id?: number;
+  nttn_link_id: string;
+  vlan_id: number;
+  interface_name: string;
+  capacity_mbps: number;
+  enabled: boolean;
+  description?: string;
+  created_at?: string;
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function NTTNManagement() {
@@ -76,8 +87,12 @@ export default function NTTNManagement() {
   const [alerts, setAlerts] = useState<NTTNAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLink, setSelectedLink] = useState<NTTNLink | null>(null);
+  const [vlans, setVlans] = useState<NTTNVlan[]>([]);
+  const [loadingVlans, setLoadingVlans] = useState(false);
   const { isOpen: isAddOpen, onOpen: onAddOpen, onClose: onAddClose } = useDisclosure();
   const { isOpen: isDetailOpen, onOpen: onDetailOpen, onClose: onDetailClose } = useDisclosure();
+  const { isOpen: isVlanOpen, onOpen: onVlanOpen, onClose: onVlanClose } = useDisclosure();
+  const { isOpen: isAddVlanOpen, onOpen: onAddVlanOpen, onClose: onAddVlanClose } = useDisclosure();
   const toast = useToast();
 
   // Form state for adding new NTTN link
@@ -87,6 +102,15 @@ export default function NTTNManagement() {
     device_ip: '',
     total_capacity_mbps: 1000,
     threshold_mbps: 950,
+  });
+
+  // Form state for adding new VLAN
+  const [vlanFormData, setVlanFormData] = useState({
+    vlan_id: 10,
+    interface_name: '',
+    capacity_mbps: 200,
+    enabled: true,
+    description: '',
   });
 
   // Color mode values
@@ -186,6 +210,94 @@ export default function NTTNManagement() {
   const handleViewDetails = (link: NTTNLink) => {
     setSelectedLink(link);
     onDetailOpen();
+  };
+
+  const loadVlans = async (linkId: string) => {
+    setLoadingVlans(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/vlans/nttn/${linkId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setVlans(data.vlans || []);
+      } else {
+        throw new Error('Failed to load VLANs');
+      }
+    } catch (error) {
+      console.error('Error loading VLANs:', error);
+      toast({
+        title: 'Error Loading VLANs',
+        description: 'Unable to load VLAN configurations',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      setVlans([]);
+    } finally {
+      setLoadingVlans(false);
+    }
+  };
+
+  const createVlan = async () => {
+    if (!selectedLink) return;
+
+    try {
+      const vlanData = {
+        nttn_link_id: selectedLink.link_id,
+        vlan_id: vlanFormData.vlan_id,
+        interface_name: vlanFormData.interface_name || `vlan${vlanFormData.vlan_id}`,
+        capacity_mbps: vlanFormData.capacity_mbps,
+        enabled: vlanFormData.enabled,
+        description: vlanFormData.description,
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/vlans/nttn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(vlanData),
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'VLAN Created',
+          description: `VLAN ${vlanFormData.vlan_id} created successfully`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+        
+        // Reset form and reload VLANs
+        setVlanFormData({
+          vlan_id: 10,
+          interface_name: '',
+          capacity_mbps: 200,
+          enabled: true,
+          description: '',
+        });
+        
+        loadVlans(selectedLink.link_id);
+        onAddVlanClose();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create VLAN');
+      }
+    } catch (error: any) {
+      console.error('Error creating VLAN:', error);
+      toast({
+        title: 'Error Creating VLAN',
+        description: error.message || 'Failed to create VLAN configuration',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleManageVlans = (link: NTTNLink) => {
+    setSelectedLink(link);
+    loadVlans(link.link_id);
+    onVlanOpen();
   };
 
   if (loading) {
@@ -363,13 +475,25 @@ export default function NTTNManagement() {
                         </Text>
                       </Td>
                       <Td>
-                        <Button
-                          size="sm"
-                          leftIcon={<ViewIcon />}
-                          onClick={() => handleViewDetails(link)}
-                        >
-                          Details
-                        </Button>
+                        <HStack spacing={2}>
+                          <Button
+                            size="sm"
+                            leftIcon={<ViewIcon />}
+                            variant="outline"
+                            onClick={() => handleViewDetails(link)}
+                          >
+                            Details
+                          </Button>
+                          <Button
+                            size="sm"
+                            leftIcon={<SettingsIcon />}
+                            colorScheme="blue"
+                            variant="outline"
+                            onClick={() => handleManageVlans(link)}
+                          >
+                            VLANs
+                          </Button>
+                        </HStack>
                       </Td>
                     </Tr>
                   ))}
@@ -559,6 +683,256 @@ export default function NTTNManagement() {
           </ModalBody>
           <ModalFooter>
             <Button onClick={onDetailClose}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* VLAN Management Modal */}
+      <Modal isOpen={isVlanOpen} onClose={onVlanClose} size="6xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            VLAN Management - {selectedLink?.name}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={6} align="stretch">
+              {/* VLAN Summary */}
+              <HStack justify="space-between">
+                <VStack align="start" spacing={1}>
+                  <Heading size="sm">VLAN Configurations</Heading>
+                  <Text color="gray.600" fontSize="sm">
+                    Manage VLANs for NTTN link bandwidth monitoring
+                  </Text>
+                </VStack>
+                <Button
+                  leftIcon={<AddIcon />}
+                  colorScheme="blue"
+                  onClick={onAddVlanOpen}
+                >
+                  Add VLAN
+                </Button>
+              </HStack>
+
+              {/* VLANs Table */}
+              {loadingVlans ? (
+                <Center py={8}>
+                  <VStack spacing={3}>
+                    <Spinner size="lg" color="blue.500" />
+                    <Text color="gray.500">Loading VLANs...</Text>
+                  </VStack>
+                </Center>
+              ) : vlans.length === 0 ? (
+                <Center py={8}>
+                  <VStack spacing={4}>
+                    <Text color="gray.500">No VLANs configured for this link</Text>
+                    <Button
+                      leftIcon={<AddIcon />}
+                      colorScheme="blue"
+                      onClick={onAddVlanOpen}
+                    >
+                      Add Your First VLAN
+                    </Button>
+                  </VStack>
+                </Center>
+              ) : (
+                <Card>
+                  <CardBody>
+                    <Table variant="simple">
+                      <Thead>
+                        <Tr>
+                          <Th>VLAN ID</Th>
+                          <Th>Interface Name</Th>
+                          <Th>Capacity</Th>
+                          <Th>Status</Th>
+                          <Th>Description</Th>
+                          <Th>Created</Th>
+                        </Tr>
+                      </Thead>
+                      <Tbody>
+                        {vlans.map((vlan) => (
+                          <Tr key={vlan.id || vlan.vlan_id}>
+                            <Td>
+                              <Badge colorScheme="blue" fontSize="sm">
+                                VLAN {vlan.vlan_id}
+                              </Badge>
+                            </Td>
+                            <Td>
+                              <Text fontFamily="mono" fontSize="sm">
+                                {vlan.interface_name}
+                              </Text>
+                            </Td>
+                            <Td>
+                              <Text fontWeight="medium">
+                                {vlan.capacity_mbps} Mbps
+                              </Text>
+                            </Td>
+                            <Td>
+                              <Badge 
+                                colorScheme={vlan.enabled ? 'green' : 'red'}
+                                variant="subtle"
+                              >
+                                {vlan.enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            </Td>
+                            <Td>
+                              <Text fontSize="sm" color="gray.600">
+                                {vlan.description || 'No description'}
+                              </Text>
+                            </Td>
+                            <Td>
+                              <Text fontSize="sm" color="gray.500">
+                                {vlan.created_at 
+                                  ? new Date(vlan.created_at).toLocaleDateString()
+                                  : 'Unknown'
+                                }
+                              </Text>
+                            </Td>
+                          </Tr>
+                        ))}
+                      </Tbody>
+                    </Table>
+                  </CardBody>
+                </Card>
+              )}
+
+              {/* VLAN Summary Stats */}
+              {vlans.length > 0 && (
+                <Grid templateColumns="repeat(3, 1fr)" gap={4}>
+                  <GridItem>
+                    <Stat>
+                      <StatLabel>Total VLANs</StatLabel>
+                      <StatNumber>{vlans.length}</StatNumber>
+                      <StatHelpText>Configured</StatHelpText>
+                    </Stat>
+                  </GridItem>
+                  <GridItem>
+                    <Stat>
+                      <StatLabel>Active VLANs</StatLabel>
+                      <StatNumber>{vlans.filter(v => v.enabled).length}</StatNumber>
+                      <StatHelpText>Enabled</StatHelpText>
+                    </Stat>
+                  </GridItem>
+                  <GridItem>
+                    <Stat>
+                      <StatLabel>Total Capacity</StatLabel>
+                      <StatNumber>
+                        {vlans.filter(v => v.enabled).reduce((sum, v) => sum + v.capacity_mbps, 0)} Mbps
+                      </StatNumber>
+                      <StatHelpText>Aggregate</StatHelpText>
+                    </Stat>
+                  </GridItem>
+                </Grid>
+              )}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={onVlanClose}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Add VLAN Modal */}
+      <Modal isOpen={isAddVlanOpen} onClose={onAddVlanClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Add New VLAN</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>VLAN ID</FormLabel>
+                <Input
+                  type="number"
+                  value={vlanFormData.vlan_id}
+                  onChange={(e) => setVlanFormData({ 
+                    ...vlanFormData, 
+                    vlan_id: parseInt(e.target.value) || 10 
+                  })}
+                  placeholder="10"
+                  min="1"
+                  max="4094"
+                />
+                <Text fontSize="sm" color="gray.500">
+                  Valid range: 1-4094 (common: 10, 20, 30, 40, 50)
+                </Text>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Interface Name</FormLabel>
+                <Input
+                  value={vlanFormData.interface_name}
+                  onChange={(e) => setVlanFormData({ 
+                    ...vlanFormData, 
+                    interface_name: e.target.value 
+                  })}
+                  placeholder={`vlan${vlanFormData.vlan_id}`}
+                />
+                <Text fontSize="sm" color="gray.500">
+                  Leave empty to auto-generate (e.g., vlan{vlanFormData.vlan_id})
+                </Text>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Capacity (Mbps)</FormLabel>
+                <Input
+                  type="number"
+                  value={vlanFormData.capacity_mbps}
+                  onChange={(e) => setVlanFormData({ 
+                    ...vlanFormData, 
+                    capacity_mbps: parseInt(e.target.value) || 200 
+                  })}
+                  placeholder="200"
+                  min="1"
+                />
+                <Text fontSize="sm" color="gray.500">
+                  Expected bandwidth capacity for this VLAN
+                </Text>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Description (Optional)</FormLabel>
+                <Input
+                  value={vlanFormData.description}
+                  onChange={(e) => setVlanFormData({ 
+                    ...vlanFormData, 
+                    description: e.target.value 
+                  })}
+                  placeholder="e.g., Voice Traffic, Data Traffic, etc."
+                />
+              </FormControl>
+
+              <FormControl display="flex" alignItems="center">
+                <FormLabel mb="0">Enable VLAN</FormLabel>
+                <input
+                  type="checkbox"
+                  checked={vlanFormData.enabled}
+                  onChange={(e) => setVlanFormData({ 
+                    ...vlanFormData, 
+                    enabled: e.target.checked 
+                  })}
+                />
+              </FormControl>
+
+              <Alert status="info">
+                <AlertIcon />
+                <Box>
+                  <AlertTitle>VLAN Configuration</AlertTitle>
+                  <AlertDescription>
+                    This VLAN will be monitored for bandwidth usage as part of the NTTN link monitoring.
+                    Make sure the VLAN exists on your router before adding it here.
+                  </AlertDescription>
+                </Box>
+              </Alert>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onAddVlanClose}>
+              Cancel
+            </Button>
+            <Button colorScheme="blue" onClick={createVlan}>
+              Add VLAN
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
