@@ -294,6 +294,64 @@ export default function NTTNManagement() {
     }
   };
 
+  const createNTTNLink = async () => {
+    try {
+      const linkData = {
+        id: `nttn_${Date.now()}`,
+        name: formData.name,
+        description: `NTTN Link - ${formData.name}`,
+        device_type: formData.device_type,
+        device_ip: formData.device_ip,
+        total_capacity_mbps: formData.total_capacity_mbps,
+        threshold_mbps: formData.threshold_mbps,
+        enabled: true
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/nttn/links`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(linkData),
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'NTTN Link Created',
+          description: `${formData.name} created successfully with default VLANs`,
+          status: 'success',
+          duration: 5000,
+          isClosable: true,
+        });
+        
+        // Reset form
+        setFormData({
+          name: '',
+          device_type: 'mikrotik',
+          device_ip: '',
+          total_capacity_mbps: 1000,
+          threshold_mbps: 950,
+        });
+        
+        // Reload data and close modal
+        loadData();
+        onAddClose();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create NTTN link');
+      }
+    } catch (error: any) {
+      console.error('Error creating NTTN link:', error);
+      toast({
+        title: 'Error Creating NTTN Link',
+        description: error.message || 'Failed to create NTTN link configuration',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   const handleManageVlans = (link: NTTNLink) => {
     setSelectedLink(link);
     loadVlans(link.link_id);
@@ -608,17 +666,11 @@ export default function NTTNManagement() {
             <Button variant="ghost" mr={3} onClick={onAddClose}>
               Cancel
             </Button>
-            <Button colorScheme="blue" onClick={() => {
-              // TODO: Implement add NTTN link functionality
-              toast({
-                title: 'Feature Coming Soon',
-                description: 'NTTN link creation will be implemented in the next update',
-                status: 'info',
-                duration: 3000,
-                isClosable: true,
-              });
-              onAddClose();
-            }}>
+            <Button 
+              colorScheme="blue" 
+              onClick={createNTTNLink}
+              isDisabled={!formData.name || !formData.device_ip}
+            >
               Add Link
             </Button>
           </ModalFooter>

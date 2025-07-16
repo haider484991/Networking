@@ -657,6 +657,90 @@ async def get_nttn_link_alerts(link_id: str, limit: int = 20):
         print(f"Database error: {e}")
         raise HTTPException(status_code=500, detail="Failed to get NTTN link alerts")
 
+@app.post("/api/nttn/links")
+async def create_nttn_link(link_data: dict):
+    """Create a new NTTN link with default VLANs."""
+    try:
+        client = get_client()
+        
+        # Validate required fields
+        required_fields = ['id', 'name', 'device_type', 'device_ip', 'total_capacity_mbps', 'threshold_mbps']
+        for field in required_fields:
+            if field not in link_data or not link_data[field]:
+                raise HTTPException(status_code=422, detail=f"Field '{field}' is required")
+        
+        # Check if link ID already exists
+        existing = client.table("nttn_links").select("id").eq("id", link_data['id']).execute()
+        if existing.data:
+            raise HTTPException(status_code=409, detail=f"NTTN link with ID '{link_data['id']}' already exists")
+        
+        # Create NTTN link
+        link_result = client.table("nttn_links").insert(link_data).execute()
+        if not link_result.data:
+            raise HTTPException(status_code=500, detail="Failed to create NTTN link")
+        
+        created_link = link_result.data[0]
+        link_id = created_link['id']
+        
+        # Create default VLANs (10, 20, 30, 40, 50) with 200 Mbps each
+        default_vlans = [
+            {
+                "nttn_link_id": link_id,
+                "vlan_id": 10,
+                "vlan_name": "VLAN 10",
+                "capacity_mbps": 200,
+                "interface_name": "vlan10",
+                "enabled": True
+            },
+            {
+                "nttn_link_id": link_id,
+                "vlan_id": 20,
+                "vlan_name": "VLAN 20", 
+                "capacity_mbps": 200,
+                "interface_name": "vlan20",
+                "enabled": True
+            },
+            {
+                "nttn_link_id": link_id,
+                "vlan_id": 30,
+                "vlan_name": "VLAN 30",
+                "capacity_mbps": 200,
+                "interface_name": "vlan30", 
+                "enabled": True
+            },
+            {
+                "nttn_link_id": link_id,
+                "vlan_id": 40,
+                "vlan_name": "VLAN 40",
+                "capacity_mbps": 200,
+                "interface_name": "vlan40",
+                "enabled": True
+            },
+            {
+                "nttn_link_id": link_id,
+                "vlan_id": 50,
+                "vlan_name": "VLAN 50",
+                "capacity_mbps": 200,
+                "interface_name": "vlan50",
+                "enabled": True
+            }
+        ]
+        
+        # Insert default VLANs
+        vlan_result = client.table("nttn_vlans").insert(default_vlans).execute()
+        
+        return {
+            "message": "NTTN link created successfully",
+            "link": created_link,
+            "vlans_created": len(vlan_result.data) if vlan_result.data else 0
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error creating NTTN link: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create NTTN link: {str(e)}")
+
 # Manual trigger for testing
 @app.post("/nttn/trigger-monitoring")
 async def trigger_nttn_monitoring():
@@ -682,7 +766,85 @@ def get_nttn_vlans(nttn_link_id: str):
         result = client.table("nttn_vlans").select("*").eq("nttn_link_id", nttn_link_id).execute()
         return {"vlans": result.data or []}
     except Exception as e:
-        logger.error(f"Error fetching NTTN VLANs: {e}")
+        print(f"Error fetching NTTN VLANs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch NTTN VLANs")
+
+@app.post("/api/vlans/nttn")
+def create_nttn_vlan(vlan: NTTNVLANModel):
+    """Create a new VLAN configuration for an NTTN link."""
+    try:
+        client = get_client()
+        
+        # Check if VLAN ID already exists for this NTTN link
+        existing = client.table("nttn_vlans").select("id").eq("nttn_link_id", vlan.nttn_link_id).eq("vlan_id", vlan.vlan_id).execute()
+        if existing.data:
+            raise HTTPException(status_code=409, detail=f"VLAN {vlan.vlan_id} already exists for NTTN link {vlan.nttn_link_id}")
+        
+        # Create VLAN configuration
+        vlan_data = {
+            "nttn_link_id": vlan.nttn_link_id,
+            "vlan_id": vlan.vlan_id,
+            "interface_name": vlan.interface_name or f"vlan{vlan.vlan_id}",
+            "capacity_mbps": vlan.capacity_mbps,
+            "enabled": vlan.enabled,
+            "description": vlan.description,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        result = client.table("nttn_vlans").insert(vlan_data).execute()
+        return {"message": "NTTN VLAN created successfully", "vlan": result.data[0]}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error creating NTTN VLAN: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create NTTN VLAN")
+
+@app.get("/api/vlans/reseller/{reseller_id}")
+def get_reseller_vlans(reseller_id: str):
+    """Get all VLAN configurations for a reseller."""
+    try:
+        client = get_client()
+        result = client.table("reseller_vlans").select("*").eq("reseller_id", reseller_id).execute()
+        return {"vlans": result.data or []}
+    except Exception as e:
+        print(f"Error fetching reseller VLANs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch reseller VLANs")
+
+@app.post("/api/vlans/reseller")
+def create_reseller_vlan(vlan: ResellerVLANModel):
+    """Create a new VLAN configuration for a reseller."""
+    try:
+        client = get_client()
+        
+        # Check if VLAN ID already exists for this reseller
+        existing = client.table("reseller_vlans").select("id").eq("reseller_id", vlan.reseller_id).eq("vlan_id", vlan.vlan_id).execute()
+        if existing.data:
+            raise HTTPException(status_code=409, detail=f"VLAN {vlan.vlan_id} already exists for reseller {vlan.reseller_id}")
+        
+        # Create VLAN configuration
+        vlan_data = {
+            "reseller_id": vlan.reseller_id,
+            "vlan_id": vlan.vlan_id,
+            "interface_name": vlan.interface_name or f"vlan{vlan.vlan_id}",
+            "capacity_mbps": vlan.capacity_mbps,
+            "enabled": vlan.enabled,
+            "description": vlan.description,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        result = client.table("reseller_vlans").insert(vlan_data).execute()
+        return {"message": "Reseller VLAN created successfully", "vlan": result.data[0]}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error creating reseller VLAN: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create reseller VLAN")nt()
+        result = client.table("nttn_vlans").select("*").eq("nttn_link_id", nttn_link_id).execute()
+        return {"vlans": result.data or []}
+    except Exception as e:
+        print(f"Error fetching NTTN VLANs: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch NTTN VLANs")
 
 @app.post("/api/vlans/nttn")

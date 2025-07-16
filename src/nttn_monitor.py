@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from .supabase_client import get_client, insert_row
 from .alert import WhatsAppAlert
 from .mikrotik_client import MikroTikRouterClient
+from .cisco_client import CiscoRouterClient
+from .juniper_client import JuniperRouterClient
 
 logger = logging.getLogger(__name__)
 
@@ -174,14 +176,125 @@ class NTTNMonitor:
         return vlan_bandwidth
 
     def _collect_cisco_vlan_data(self, device_ip: str, vlan_configs: List[Dict]) -> Dict[int, float]:
-        """Collect VLAN bandwidth data from Cisco router (placeholder)."""
-        logger.info("Cisco VLAN data collection not implemented yet, using mock data")
-        return self._generate_mock_vlan_data(vlan_configs)
+        """Collect VLAN bandwidth data from Cisco router."""
+        vlan_bandwidth = {}
+        router_client = None
+        
+        try:
+            # Get router credentials from database
+            client = get_client()
+            router_result = client.table("router_configs").select("*").eq("host", device_ip).eq("enabled", True).execute()
+            
+            if not router_result.data:
+                logger.warning("No router config found for %s, using mock data", device_ip)
+                return self._generate_mock_vlan_data(vlan_configs)
+            
+            router_config = router_result.data[0]
+            
+            # Connect to Cisco router
+            router_client = CiscoRouterClient(
+                host=router_config['host'],
+                username=router_config['username'],
+                password=router_config['password'],
+                port=router_config.get('port', 443),
+                use_ssl=router_config.get('use_ssl', True)
+            )
+            
+            if not router_client.connect():
+                logger.error("Failed to connect to Cisco router %s", device_ip)
+                return self._generate_mock_vlan_data(vlan_configs)
+            
+            # Get VLAN interfaces
+            vlan_interfaces = router_client.get_vlan_interfaces()
+            
+            for vlan_config in vlan_configs:
+                vlan_id = vlan_config['vlan_id']
+                interface_name = vlan_config.get('interface_name', f"GigabitEthernet0/0/0.{vlan_id}")
+                
+                # Find matching interface
+                interface_data = None
+                for interface in vlan_interfaces:
+                    if interface.get('name') == interface_name:
+                        interface_data = interface
+                        break
+                
+                if interface_data:
+                    # Get bandwidth usage
+                    rx_mbps, tx_mbps = router_client.get_bandwidth_usage(interface_name)
+                    total_mbps = rx_mbps + tx_mbps
+                    vlan_bandwidth[vlan_id] = min(total_mbps, vlan_config.get('capacity_mbps', 200))
+                else:
+                    logger.warning("VLAN interface %s not found on Cisco router", interface_name)
+                    vlan_bandwidth[vlan_id] = 0.0
+                    
+        except Exception as exc:
+            logger.error("Error collecting Cisco VLAN data: %s", exc)
+            return self._generate_mock_vlan_data(vlan_configs)
+        finally:
+            if router_client:
+                router_client.disconnect()
+                
+        return vlan_bandwidth
 
     def _collect_juniper_vlan_data(self, device_ip: str, vlan_configs: List[Dict]) -> Dict[int, float]:
-        """Collect VLAN bandwidth data from Juniper router (placeholder)."""
-        logger.info("Juniper VLAN data collection not implemented yet, using mock data")
-        return self._generate_mock_vlan_data(vlan_configs)
+        """Collect VLAN bandwidth data from Juniper router."""
+        vlan_bandwidth = {}
+        router_client = None
+        
+        try:
+            # Get router credentials from database
+            client = get_client()
+            router_result = client.table("router_configs").select("*").eq("host", device_ip).eq("enabled", True).execute()
+            
+            if not router_result.data:
+                logger.warning("No router config found for %s, using mock data", device_ip)
+                return self._generate_mock_vlan_data(vlan_configs)
+            
+            router_config = router_result.data[0]
+            
+            # Connect to Juniper router
+            router_client = JuniperRouterClient(
+                host=router_config['host'],
+                username=router_config['username'],
+                password=router_config['password'],
+                port=router_config.get('port', 830)
+            )
+            
+            if not router_client.connect():
+                logger.error("Failed to connect to Juniper router %s", device_ip)
+                return self._generate_mock_vlan_data(vlan_configs)
+            
+            # Get VLAN interfaces
+            vlan_interfaces = router_client.get_vlan_interfaces()
+            
+            for vlan_config in vlan_configs:
+                vlan_id = vlan_config['vlan_id']
+                interface_name = vlan_config.get('interface_name', f"ge-0/0/0.{vlan_id}")
+                
+                # Find matching interface
+                interface_data = None
+                for interface in vlan_interfaces:
+                    if interface.get('name') == interface_name:
+                        interface_data = interface
+                        break
+                
+                if interface_data:
+                    # Get bandwidth usage
+                    rx_mbps, tx_mbps = router_client.get_bandwidth_usage(interface_name)
+                    total_mbps = rx_mbps + tx_mbps
+                    vlan_bandwidth[vlan_id] = min(total_mbps, vlan_config.get('capacity_mbps', 200))
+                else:
+                    logger.warning("VLAN interface %s not found on Juniper router", interface_name)
+                    vlan_bandwidth[vlan_id] = 0.0
+                    
+        except Exception as exc:
+            logger.error("Error collecting Juniper VLAN data: %s", exc)
+            return self._generate_mock_vlan_data(vlan_configs)
+        finally:
+            if router_client:
+                router_client.disconnect()
+                
+        return vlan_bandwidth
 
     def _generate_mock_vlan_data(self, vlan_configs: List[Dict]) -> Dict[int, float]:
         """Generate mock VLAN bandwidth data for testing."""

@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 
 from .supabase_client import get_client, insert_row
 from .mikrotik_client import RouterManager
+from .cisco_client import CiscoRouterClient
+from .juniper_client import JuniperRouterClient
 
 logger = logging.getLogger(__name__)
 

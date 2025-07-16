@@ -49,7 +49,7 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import { apiClient, Reseller, LinkState } from '../utils/api';
-import ResellerManagement, { ResellerActionButtons } from '../components/ResellerManagement';
+import ResellerManagement from '../components/ResellerManagement';
 import ResellerLeaderboard from '../components/ResellerLeaderboard';
 import BandwidthChart from '../components/BandwidthChart';
 import NTTNChart from '../components/NTTNChart';
@@ -237,6 +237,9 @@ export default function Dashboard() {
               <Link href="/settings">
                 <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>Settings</Text>
               </Link>
+              <Link href="/ipam">
+                <Text cursor="pointer" _hover={{ color: 'yellow.300' }}>IPAM</Text>
+              </Link>
             </HStack>
           </Flex>
         </Container>
@@ -401,11 +404,22 @@ export default function Dashboard() {
                                 <Td>{getUtilizationBadge(reseller)}</Td>
                                 <Td>{getLinkStatusBadge(reseller.id)}</Td>
                                 <Td>
-                                  <ResellerActionButtons
-                                    reseller={reseller}
-                                    onEdit={handleEditReseller}
-                                    onDelete={handleDeleteReseller}
-                                  />
+                                  <HStack spacing={2}>
+                                    <Button
+                                      size="sm"
+                                      colorScheme="blue"
+                                      onClick={() => handleEditReseller(reseller)}
+                                    >
+                                      Edit
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      colorScheme="red"
+                                      onClick={() => handleDeleteReseller(reseller)}
+                                    >
+                                      Delete
+                                    </Button>
+                                  </HStack>
                                 </Td>
                               </Tr>
                             ))
@@ -473,16 +487,7 @@ export default function Dashboard() {
                       <Spinner size="xl" color="blue.500" />
                     </Center>
                   ) : (
-                    <ResellerManagement 
-                      resellers={resellers}
-                      onResellerChange={handleResellerChange}
-                      initialReseller={managingReseller}
-                      onResellerManaged={() => {
-                        setManagingReseller(null);
-                        setShowManagement(false);
-                        setActiveTab(0); // Switch back to dashboard tab
-                      }}
-                    />
+                    <ResellerManagement />
                   )}
                 </CardBody>
               </Card>
